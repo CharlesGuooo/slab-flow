@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { db } from './lib/db';
-import { tenants } from './lib/db';
-import { eq } from 'drizzle-orm';
 
 // Routes that don't require tenant identification
 const PUBLIC_ROUTES = [
@@ -12,6 +9,8 @@ const PUBLIC_ROUTES = [
   '/favicon.ico',
   '/robots.txt',
   '/sitemap.xml',
+  '/suspended',
+  '/not-found',
 ];
 
 // Static file patterns to skip
@@ -72,65 +71,118 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  try {
-    // Query the database for the tenant
-    const tenantResult = await db
-      .select()
-      .from(tenants)
-      .where(eq(tenants.domain, domain))
-      .limit(1);
+  // For local development without a real database,
+  // we skip tenant identification on localhost
+  // In production, this will use the database
+  if (domain === 'localhost' || domain.startsWith('localhost:')) {
+    // Call our internal API to get tenant info
+    try {
+      const tenantResponse = await fetch(
+        new URL('/api/internal/tenant-lookup', request.url),
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ domain }),
+        }
+      );
 
-    const tenant = tenantResult[0];
+      if (tenantResponse.ok) {
+        const tenant = await tenantResponse.json();
 
-    if (!tenant) {
-      // Tenant not found, redirect to platform 404 or landing page
-      const url = request.nextUrl.clone();
-      url.pathname = '/not-found';
-      return NextResponse.redirect(url);
-    }
+        if (!tenant.isActive) {
+          // Tenant service is suspended
+          if (pathname.startsWith('/admin')) {
+            const response = NextResponse.next();
+            response.headers.set('x-tenant-id', tenant.id.toString());
+            response.headers.set('x-tenant-active', 'false');
+            return response;
+          }
 
-    if (!tenant.isActive) {
-      // Tenant service is suspended
-      // Allow access to admin routes so tenant admin can check status
-      if (pathname.startsWith('/admin')) {
-        // Inject tenant info but allow access
+          const url = request.nextUrl.clone();
+          url.pathname = '/suspended';
+          url.searchParams.set('tenant', tenant.name);
+          return NextResponse.redirect(url);
+        }
+
+        // Tenant is active
         const response = NextResponse.next();
         response.headers.set('x-tenant-id', tenant.id.toString());
-        response.headers.set('x-tenant-active', 'false');
+        response.headers.set('x-tenant-name', tenant.name);
+        response.headers.set('x-tenant-active', 'true');
+        response.headers.set(
+          'x-tenant-features',
+          JSON.stringify({
+            chatbot: tenant.featureChatbot,
+            calculator: tenant.featureCalculator,
+            '3d-reconstruction': tenant.feature3dReconstruction,
+          })
+        );
         return response;
       }
-
-      // For non-admin routes, show suspended page
-      const url = request.nextUrl.clone();
-      url.pathname = '/suspended';
-      url.searchParams.set('tenant', tenant.name);
-      return NextResponse.redirect(url);
+    } catch (error) {
+      console.error('Middleware tenant lookup error:', error);
     }
 
-    // Tenant is active, inject tenant info into headers
-    const response = NextResponse.next();
-    response.headers.set('x-tenant-id', tenant.id.toString());
-    response.headers.set('x-tenant-name', tenant.name);
-    response.headers.set('x-tenant-active', 'true');
-
-    // Add feature flags
-    response.headers.set(
-      'x-tenant-features',
-      JSON.stringify({
-        chatbot: tenant.featureChatbot,
-        calculator: tenant.featureCalculator,
-        '3d-reconstruction': tenant.feature3dReconstruction,
-      })
-    );
-
-    return response;
-  } catch (error) {
-    console.error('Middleware database error:', error);
-
-    // On database error, allow request to continue
-    // The page can handle missing tenant gracefully
+    // If lookup fails or no tenant found, pass through
+    // Pages can handle missing tenant gracefully
     return NextResponse.next();
   }
+
+  // For production domains, we would query the database directly
+  // But since middleware runs in edge runtime, we use the API approach
+  try {
+    const tenantResponse = await fetch(
+      new URL('/api/internal/tenant-lookup', request.url),
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ domain }),
+      }
+    );
+
+    if (tenantResponse.ok) {
+      const tenant = await tenantResponse.json();
+
+      if (!tenant.isActive) {
+        if (pathname.startsWith('/admin')) {
+          const response = NextResponse.next();
+          response.headers.set('x-tenant-id', tenant.id.toString());
+          response.headers.set('x-tenant-active', 'false');
+          return response;
+        }
+
+        const url = request.nextUrl.clone();
+        url.pathname = '/suspended';
+        url.searchParams.set('tenant', tenant.name);
+        return NextResponse.redirect(url);
+      }
+
+      const response = NextResponse.next();
+      response.headers.set('x-tenant-id', tenant.id.toString());
+      response.headers.set('x-tenant-name', tenant.name);
+      response.headers.set('x-tenant-active', 'true');
+      response.headers.set(
+        'x-tenant-features',
+        JSON.stringify({
+          chatbot: tenant.featureChatbot,
+          calculator: tenant.featureCalculator,
+          '3d-reconstruction': tenant.feature3dReconstruction,
+        })
+      );
+      return response;
+    }
+  } catch (error) {
+    console.error('Middleware tenant lookup error:', error);
+  }
+
+  // Tenant not found
+  const url = request.nextUrl.clone();
+  url.pathname = '/not-found';
+  return NextResponse.redirect(url);
 }
 
 export const config = {

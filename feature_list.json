@@ -271,7 +271,7 @@
       "Step 4: Click toggle to change isActive to true",
       "Step 5: Verify tenant's website is accessible again"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
