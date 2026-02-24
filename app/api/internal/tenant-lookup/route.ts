@@ -14,6 +14,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Special case: return the first active tenant for development
+    if (domain === '__default__') {
+      const tenantResult = await db
+        .select()
+        .from(tenants)
+        .where(eq(tenants.isActive, true))
+        .limit(1);
+
+      const tenant = tenantResult[0];
+
+      if (!tenant) {
+        return NextResponse.json(
+          { error: 'No active tenant found' },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json(tenant);
+    }
+
     // Query the database for the tenant
     const tenantResult = await db
       .select()

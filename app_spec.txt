@@ -1,0 +1,995 @@
+# SlabFlow - 建材自动化多租户SaaS平台
+
+**项目名称:** SlabFlow
+**开发目录:** D:\Projects2\SlabFlow
+**版本:** 3.0 (多租户SaaS架构)
+**日期:** 2026-02-23
+
+---
+
+# 零、 行业背景与业务知识（开发者必读）
+
+## 石料加工行业背景
+
+我们服务的对象是**石料加工行业**，该行业有两种核心角色：
+
+### 1. 石料厂（Stone Suppliers）
+- 从中国等地进货，采购各种材质的石料
+- 每块石料标准尺寸：**3.2m × 1.6m，厚度 2cm** 的大石板
+- 不同石料厂对同一材质、同一纹理的石料有**各自独立的型号标注方法**
+- 即使是相同的石料，不同厂商的型号也不一样
+
+### 2. 加工厂（Fabricators）← 我们的主要客户
+- 从石料厂采购石料，进行加工（切割、打磨、安装等）
+- 业务模式：客户（或设计师）来找加工厂，加工厂提供石料选择 + 加工服务
+- **行业潜规则**：不能垄断，即不能既卖石料又做加工（保护行业生态）
+
+### 3. 费用结构
+- **总报价 = 石料费 + 加工费**
+- 石料费：按每块大石板（3.2m × 1.6m × 2cm）报价
+- 加工费：需要加工厂派人现场测量后计算，包含：
+  - 各种切割方式（直切、45度切、瀑布边等）
+  - 人工费
+  - 材料费
+
+### 4. 业务流程
+1. 客户（或设计师）联系加工厂
+2. 加工厂展示石料选择
+3. 客户选定石料后，加工厂派人现场测量
+4. 加工厂给出总报价（石料 + 加工费）
+5. 确认后进行加工和安装
+
+---
+
+# 一、 最终技术栈推荐
+
+我们的技术选型保持现代化和高度集成，但核心部署理念已全面升级为多租户SaaS模式。
+
+| 技术领域 | 选用技术 | 主要职责与选型理由 |
+| :--- | :--- | :--- |
+| **前端框架** | Next.js (App Router) | 业界领先的React框架，与Vercel无缝集成，兼具SSR和SSG优势，为多语言和动态主题提供了良好的基础。 |
+| **UI样式** | Tailwind CSS | 原子化的CSS框架，能快速构建现代化、响应式的用户界面，且易于维护。 |
+| **编程语言** | TypeScript | 为JavaScript提供静态类型检查，能显著提升代码的健壮性和可维护性。 |
+| **部署平台** | **Vercel + GitHub (单一平台部署)** | **【架构升级】** 我们将在你的Vercel账号下进行**唯一一次部署**。所有商家都将通过CNAME指向这同一次部署，你拥有完全的控制权。 |
+| **核心数据库** | **Vercel Postgres (Neon)** | **【架构升级】** 我们将使用**一个**数据库。所有数据表都将包含 `tenantId` 字段，以实现商家之间的数据逻辑隔离。Neon的Serverless特性依然是最佳选择。 |
+| **图片存储** | **Cloudflare R2 (单一存储桶)** | **【架构升级】** 我们将使用**一个**R2存储桶。所有商家的文件都将按 `tenantId` 前缀进行隔离存储（例如 `/{tenantId}/...`），实现高效、低成本的统一管理。 |
+| **邮件服务** | **Resend** | 用于在用户注册后自动发送PIN码，以及订单状态变更的通知。API Key由平台统一管理。 |
+| **ORM** | Drizzle ORM | 轻量、高效且类型安全的SQL查询构建器，与TypeScript和Neon数据库能很好地配合。 |
+| **AI对话模型** | GPT-4/GPT-5 | 强大的语言模型，作为Chatbot的核心大脑。系统提示词将根据不同租户的配置动态生成。 |
+| **AI生图模型** | Nano Banana Pro | 用于生成石材在实际场景中的渲染效果图。 |
+| **3D重建服务** | World Labs World API | 作为可独立开关的增值服务，为购买此功能的商家提供从2D图片到3D场景的重建能力。 |
+
+---
+
+# 二、分块开发计划 (v3 - 多租户版)
+
+整个系统分解为六个核心模块，每个模块的实现都将围绕"多租户"这一核心思想进行。
+
+---
+
+# ==============================================================================
+# 模块一：项目基石与核心服务 (Foundation & Core Services)
+# ==============================================================================
+
+**开发目标：** 搭建支持多租户的SaaS基础架构，这是整个项目从独立部署模式转向可扩展SaaS模式的**基石**，也是本次升级中**改动最大、最核心**的模块。这份计划包含了所有必要的细节，可直接用于开发。
+
+## 1. 项目初始化与环境搭建
+
+**目标：** 创建一个标准、规范的Next.js项目，并集成必要的开发工具。
+
+**步骤：**
+
+1. 打开你的终端，运行以下命令来创建一个新的Next.js项目。当被问及时，请确保选择 `TypeScript`, `ESLint`, `Tailwind CSS`, 和 `App Router`。
+
+    ```bash
+    npx create-next-app@latest slabflow
+    ```
+
+2. 进入项目目录，并安装Drizzle ORM及相关依赖：
+
+    ```bash
+    cd slabflow
+    npm install drizzle-orm @neondatabase/serverless
+    npm install -D drizzle-kit typescript
+    ```
+
+## 2. 项目结构规划 (v3)
+
+**目标：** 建立一个清晰、可扩展的文件夹结构，以支持多租户架构和超级管理员后台。
+
+```
+/slabflow
+├── /app
+│   ├── /(admin)               # 租户管理员路由组
+│   │   ├── /dashboard
+│   │   └── layout.tsx
+│   ├── /(client)              # 客户端路由组
+│   │   ├── /browse
+│   │   └── layout.tsx
+│   ├── /platform-admin        # 【新增】超级管理员后台
+│   │   └── /tenants
+│   ├── /api                   # 后端API路由
+│   │   └── /chat
+│   ├── layout.tsx             # 根布局
+│   └── page.tsx               # 平台主页或登录页
+├── /components                # 全局共享组件
+├── /lib                       # 核心服务与工具函数
+│   ├── db.ts                  # Drizzle ORM 实例与数据库连接
+│   ├── r2.ts                  # Cloudflare R2 客户端与辅助函数
+│   └── utils.ts
+├── /drizzle                   # Drizzle Kit 配置文件与迁移文件
+│   └── schema.ts              # 【核心】多租户数据库表结构定义
+├── .env.local                 # 本地环境变量 (不提交到Git)
+├── .env.local.example         # 环境变量模板 (提交到Git)
+├── middleware.ts              # 【核心】租户识别中间件
+└── next.config.mjs
+```
+
+## 3. 核心数据库 Schema 设计 (v3 - Drizzle ORM)
+
+**目标：** 定义支撑整个多租户业务逻辑的数据库表结构。这是模块一**最核心**的部分。
+
+在 `/drizzle/schema.ts` 文件中，我们将定义以下表格。所有业务表都将通过 `tenantId` 与 `tenants` 表关联。
+
+```typescript
+import { pgTable, serial, text, varchar, timestamp, integer, boolean, decimal, jsonb } from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
+
+// ============================================================
+// 【新增】租户表 (所有商家的"户口本")
+// ============================================================
+export const tenants = pgTable('tenants', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(), // 商家名称, e.g., "StoneMaster NYC"
+  domain: varchar('domain', { length: 255 }).notNull().unique(), // 商家绑定的主域名
+  isActive: boolean('is_active').default(true).notNull(), // 服务开关
+
+  // 主题配置 (White-label)
+  themePrimaryColor: varchar('theme_primary_color', { length: 7 }).default('#000000'),
+  themeLogoUrl: text('theme_logo_url'),
+  themeBannerUrl: text('theme_banner_url'),
+
+  // 功能开关 (Feature Flags)
+  featureChatbot: boolean('feature_chatbot').default(true),
+  featureCalculator: boolean('feature_calculator').default(true),
+  feature3dReconstruction: boolean('feature_3d_reconstruction').default(false),
+
+  // 商家联系信息
+  contactPhone: varchar('contact_phone', { length: 30 }),
+  contactEmail: varchar('contact_email', { length: 255 }),
+  address: text('address'),
+
+  // AI相关配置
+  aiSystemPrompt: text('ai_system_prompt'), // 可选的个性化AI系统提示词
+  aiMonthlyBudget: decimal('ai_monthly_budget', { precision: 12, scale: 2 }).default('50.00'), // 每月AI预算上限
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ============================================================
+// 客户表 (关联到租户)
+// ============================================================
+export const users = pgTable('users', {
+  id: serial('id').primaryKey(),
+  tenantId: integer('tenant_id').references(() => tenants.id).notNull(),
+  username: varchar('username', { length: 256 }).notNull(),
+  email: varchar('email', { length: 256 }).notNull(),
+  phone: varchar('phone', { length: 50 }),
+  pin: text('pin'), // 存储 bcrypt 哈希后的PIN码
+  aiCredits: decimal('ai_credits', { precision: 10, scale: 2 }).default('10.00'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ============================================================
+// 管理员表 (分超级管理员和租户管理员)
+// ============================================================
+export const admins = pgTable('admins', {
+  id: serial('id').primaryKey(),
+  tenantId: integer('tenant_id').references(() => tenants.id), // 超级管理员此字段为NULL
+  role: varchar('role', { enum: ['super_admin', 'tenant_admin'] }).default('tenant_admin').notNull(),
+  email: varchar('email', { length: 256 }).unique().notNull(),
+  passwordHash: text('password_hash').notNull(),
+});
+
+// ============================================================
+// 石料库存表 (关联到租户)
+// ============================================================
+export const inventoryStones = pgTable('inventory_stones', {
+  id: serial('id').primaryKey(),
+  tenantId: integer('tenant_id').references(() => tenants.id).notNull(),
+  brand: varchar('brand', { length: 256 }).notNull(),
+  series: varchar('series', { length: 256 }).notNull(),
+  stoneType: varchar('stone_type', { enum: ['quartz', 'granite', 'marble', 'quartzite', 'porcelain'] }),
+  pricePerSlab: decimal('price_per_slab', { precision: 10, scale: 2 }),
+  imageUrl: text('image_url').notNull(),
+  name: jsonb('name'), // 多语言名称
+  description: jsonb('description'), // 多语言描述
+  tags: jsonb('tags'), // 内部Tag系统
+  isActive: boolean('is_active').default(true).notNull(), // 软删除标志
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ============================================================
+// 客户报价订单表 (关联到租户)
+// ============================================================
+export const clientOrders = pgTable('client_orders', {
+  id: serial('id').primaryKey(),
+  tenantId: integer('tenant_id').references(() => tenants.id).notNull(),
+  userId: integer('user_id').references(() => users.id).notNull(),
+  stoneId: integer('stone_id').references(() => inventoryStones.id),
+  stoneSelectionText: text('stone_selection_text'),
+  desiredDate: varchar('desired_date', { enum: ['ASAP', 'within_2_weeks', 'within_a_month', 'not_in_a_hurry'] }),
+  isContractor: boolean('is_contractor').default(false),
+  totalBudget: decimal('total_budget', { precision: 12, scale: 2 }),
+  notes: text('notes'), // 客户备注
+  status: varchar('status', { enum: ['pending_quote', 'quoted', 'in_progress', 'completed'] }).default('pending_quote'),
+  finalQuotePrice: decimal('final_quote_price', { precision: 12, scale: 2 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ============================================================
+// 订单图片表 (关联到租户)
+// ============================================================
+export const orderPhotos = pgTable('order_photos', {
+  id: serial('id').primaryKey(),
+  tenantId: integer('tenant_id').references(() => tenants.id).notNull(),
+  orderId: integer('order_id').references(() => clientOrders.id).notNull(),
+  imageUrl: text('image_url').notNull(),
+  photoType: varchar('photo_type', { enum: ['user_upload', 'ai_generated'] }).notNull(),
+  gaussianSplatUrl: text('gaussian_splat_url'), // 存储我们自己R2上的SPZ文件URL (模块六添加)
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ============================================================
+// 加工费计算器配置表 (关联到租户)
+// ============================================================
+export const calculationItems = pgTable('calculation_items', {
+  id: serial('id').primaryKey(),
+  tenantId: integer('tenant_id').references(() => tenants.id).notNull(),
+  name: varchar('name', { length: 256 }).notNull(),
+  unit: varchar('unit', { enum: ['per_sqft', 'per_unit', 'per_hour'] }).notNull(),
+  pricePerUnit: decimal('price_per_unit', { precision: 10, scale: 2 }).notNull(),
+  sortOrder: integer('sort_order').default(0),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ... 表关系定义 (relations) ...
+```
+
+## 4. Next.js中间件开发 (`middleware.ts`)
+
+**目标：** 实现基于域名的租户识别和请求注入，这是多租户架构的"交通枢纽"。
+
+**开发步骤：**
+
+1. 在项目根目录创建 `middleware.ts` 文件。
+2. 获取请求的 `Host` header（即访问域名）。
+3. 根据 `Host` 查询 `tenants` 表，找到匹配的租户记录。
+4. **处理逻辑**：
+   - **找不到租户**：重定向到统一的404页面或平台主页。
+   - **租户 `isActive` 为 `false`**：重定向到统一的"服务已暂停"页面（但需放行该租户的Admin后台路径，以便其登录查看原因）。
+   - **找到且激活**：将查询到的 `tenant` 对象（或至少 `tenantId`）附加到请求头中（如 `x-tenant-id`），以便后续的API和页面可以获取。
+
+## 5. 平台级环境变量规划
+
+**目标：** 将所有敏感信息和配置项由平台方集中管理。
+
+在根目录创建 `.env.local.example` 文件，并填入以下内容。
+
+```
+# ============================================================
+# 数据库 (Neon Postgres)
+# ============================================================
+DATABASE_URL="postgres://..."
+
+# ============================================================
+# 对象存储 (Cloudflare R2) - 平台统一
+# ============================================================
+R2_ACCOUNT_ID="..."
+R2_ACCESS_KEY_ID="..."
+R2_SECRET_ACCESS_KEY="..."
+R2_BUCKET_NAME="your-saas-main-bucket"
+R2_PUBLIC_URL="https://pub-....r2.dev"
+
+# ============================================================
+# API Keys (平台统一管理)
+# ============================================================
+RESEND_API_KEY="resend_..."
+OPENAI_API_KEY="sk-..."
+WORLD_LABS_API_KEY="sk-..."
+
+# ============================================================
+# 会话安全
+# ============================================================
+AUTH_SECRET="generate_a_random_32_character_string"
+
+# ============================================================
+# 应用配置
+# ============================================================
+NEXT_PUBLIC_APP_URL="http://localhost:3000" # 用于中间件判断和重定向
+```
+
+## 6. 核心服务配置与部署
+
+**目标：** 初始化服务连接，并建立CI/CD流程。
+
+- **/lib/db.ts:** 初始化Drizzle客户端，并从 `process.env.DATABASE_URL` 读取连接字符串。
+- **/lib/r2.ts:** 初始化S3客户端。**关键**：所有文件上传函数都必须接收 `tenantId` 参数，并将其作为文件路径的第一级目录，例如 `/{tenantId}/inventory/{stoneId}.jpg`。
+- **部署与CI/CD**: 在GitHub上创建私有仓库，关联到Vercel，并将所有环境变量添加到Vercel的项目设置中。此后，所有代码提交都将自动部署到这**唯一的平台应用**上。
+
+---
+
+完成以上所有步骤后，模块一就宣告成功。你将拥有一个功能完备、具备多租户隔离能力、并已成功部署的SaaS平台地基。
+
+---
+
+# ==============================================================================
+# 模块二：后台管理核心 (Admin Panel)
+# ==============================================================================
+
+**开发目标：** 构建一个分层的后台管理系统，包含一个管理所有商家的"超级后台"和一个供每个商家自己使用的"租户后台"。此模块是实现SaaS平台商业运营和管理的核心。
+
+## 1. 核心架构：双层后台系统
+
+我们将开发两个独立的后台系统，共享部分组件但权限完全隔离。
+
+- **超级管理员后台 (Platform Admin Panel):**
+  - **访问路径:** `/platform-admin`
+  - **用户:** 你，作为平台运营方。
+  - **职责:** 创建和管理所有租户（商家），配置他们的域名、主题、功能，并控制其服务状态。
+
+- **租户管理员后台 (Tenant Admin Panel):**
+  - **访问路径:** `/admin` (在租户自己的域名下，如 `merchant-a.com/admin`)
+  - **用户:** 你的客户，即石材商家老板。
+  - **职责:** 管理自己店铺的业务数据，如石料库存、客户订单、报价等。所有操作都严格限制在自己的`tenantId`范围内。
+
+## 2. 任务分解：超级管理员后台 (`/platform-admin`)
+
+**目标：** 为平台方提供一个上帝视角的管理界面。
+
+### 2.1. 超级管理员认证
+
+- **登录页面:** `/platform-admin/login`
+- **认证逻辑:**
+  - 验证用户邮箱和密码。
+  - 查询`admins`表，确认`role`为`super_admin`。
+  - 成功后创建会话，该会话具有访问`/platform-admin`下所有页面的权限。
+
+### 2.2. 租户管理 (Tenants CRUD)
+
+- **页面:** `/platform-admin/tenants`
+- **功能:**
+  - **列表视图:** 以表格形式展示所有租户，包含`名称`, `域名`, `状态 (isActive)`, `创建日期`等关键信息。
+  - **创建租户:**
+    - 一个表单，用于填写新商家的基本信息（名称、域名）。
+    - 提交后，在`tenants`表中创建一条新记录。
+    - 同时，在`admins`表中为该租户创建一个默认的`tenant_admin`账号，并将初始密码通过安全的方式告知商家。
+  - **编辑租户:**
+    - 点击租户进入详情页 `/platform-admin/tenants/[id]`。
+    - **服务开关:** 一个醒目的按钮，用于切换`isActive`状态，实现即时停服/恢复服务。
+    - **主题配置:** 提供输入框和颜色选择器，用于修改`themePrimaryColor`, `themeLogoUrl`, `themeBannerUrl`等。
+    - **功能开关:** 一组复选框，用于控制`featureChatbot`, `featureCalculator`, `feature3dReconstruction`等增值功能的开启或关闭。
+    - **信息配置:** 修改商家的联系电话、邮箱、地址等。
+    - **AI预算配置:** 设置该商家的`aiMonthlyBudget`。
+
+## 3. 任务分解：租户管理员后台 (`/admin`)
+
+**目标：** 为每个商家提供一个功能强大且数据隔离的业务管理后台。
+
+### 3.1. 租户管理员认证
+
+- **登录页面:** `/admin/login`
+- **认证逻辑:**
+  - 中间件已根据域名识别出`tenantId`。
+  - 验证用户邮箱和密码。
+  - 查询`admins`表，确认`role`为`tenant_admin`且`tenantId`与当前租户匹配。
+  - 成功后创建会话，该会话具有访问`/admin`下所有页面的权限。
+
+### 3.2. 仪表盘 (Dashboard)
+
+- **页面:** `/admin/dashboard`
+- **功能:** 聚合展示当前租户的核心业务指标，如待报价订单数、本月新增客户数等。所有数据查询都必须包含`WHERE tenantId = ?`条件。
+
+### 3.3. 石料库存管理 (Inventory Management)
+
+- **页面:** `/admin/inventory`
+- **功能:**
+  - **列表视图:** 展示**当前租户**的所有石料库存 (`inventory_stones` where `tenantId` = ?)。
+  - **添加/编辑石料:**
+    - 表单包含`品牌`, `系列`, `类型`, `价格`, `图片上传`等所有`inventory_stones`表中的字段。
+    - **多语言输入:** `名称`和`描述`字段需要提供中、英、法三个标签页输入框，数据以JSON格式存入`jsonb`字段。
+    - 图片上传将自动包含`tenantId`作为R2存储路径前缀。
+  - **软删除:** "删除"按钮将石料的`isActive`字段设为`false`，而不是物理删除。列表页默认只显示`isActive = true`的石料。
+
+### 3.4. 订单与报价管理 (Order & Quoting Management)
+
+- **页面:** `/admin/orders`
+- **功能:**
+  - **列表视图:** 展示**当前租户**的所有客户报价请求 (`client_orders` where `tenantId` = ?)，并按状态（待报价、已报价等）分类。
+  - **订单详情页:** `/admin/orders/[id]`
+    - 聚合展示该订单的所有信息：客户资料、选定石料、客户上传的场景图、AI渲染图、客户备注。
+    - 一个输入框用于管理员填写`finalQuotePrice`。
+    - 一个下拉框用于更新订单状态`status`（如改为"已完成"）。
+
+### 3.5. 客户管理 (Customer Management)
+
+- **页面:** `/admin/customers`
+- **功能:**
+  - 列表展示**当前租户**的所有注册客户 (`users` where `tenantId` = ?)。
+  - 可以查看每个客户的详细信息，并手动为其`aiCredits`充值。
+
+### 3.6. 计费项配置 (Calculator Configuration)
+
+- **页面:** `/admin/calculator-settings`
+- **功能:** 提供一个CRUD界面，让商家可以自定义其加工费计算器的计费项 (`calculation_items` where `tenantId` = ?)，包括项目名称、单位和单价。
+- **默认计费项（新租户初始化时自动创建）:**
+
+| 项目名称 | 单位 | 默认单价 (CAD) |
+|----------|------|----------------|
+| Straight Cut (直切) | per_sqft | 30 |
+| 45-degree Cut (45度切) | per_sqft | 45 |
+| Waterfall (瀑布边) | per_sqft | 60 |
+| Double Edge (双边) | per_sqft | 50 |
+| Single Edge (单边) | per_sqft | 35 |
+| Labour Cost (人工费) | per_hour | 40 |
+| Fabrication Material (加工材料) | per_sqft | 3 |
+
+- **计算器说明:**
+  - 这是一个**独立的计算工具**，供商家快速估算加工费用
+  - 商家输入各项的数值（如直切多少平方英尺、人工多少小时等）
+  - 系统自动计算总价
+  - **注意**: 计算结果不会自动存储，商家可以在最终报价时参考此价格，然后手动调整（打折或加价）
+
+### 3.7. （可选）财报功能
+
+- **页面:** `/admin/reports`
+- **实现方式:** 简单起见，初期可直接使用`iframe`嵌入一个该商家专属的Google Sheet，用于`Revenue/Spend`记录。
+
+---
+
+完成此模块后，你将拥有一个层次分明、权限清晰、功能完备的SaaS后台管理系统。你可以作为平台方掌控全局，而你的每个客户（商家）也能高效地管理自己的线上业务。
+
+---
+
+# ==============================================================================
+# 模块三：客户端认证与产品展示 (Client Authentication & Showcase)
+# ==============================================================================
+
+**开发目标：** 构建能根据不同域名动态展示不同"皮肤"和内容的客户端前台。这是将SaaS平台转化为多个独立品牌网站的关键，直接决定了终端用户的"定制化"体验。
+
+## 1. 核心架构：动态主题与租户隔离
+
+本模块的所有页面和API都将在客户端路由组 `app/(client)` 下开发。它们将严重依赖模块一中开发的中间件来获取当前租户 (`tenant`) 的信息。
+
+- **动态主题 (Dynamic Theming):** 客户端的根布局 (`/app/(client)/layout.tsx`) 将首先获取当前租户的主题配置（`themeLogoUrl`, `themePrimaryColor`等），并将其应用到整个网站的CSS变量和UI组件中，实现"一站一貌"。
+- **数据隔离 (Data Isolation):** 所有面向客户的数据展示（如石料、历史订单）和数据提交（注册、登录、报价）都将严格通过`tenantId`进行过滤和绑定。
+
+## 2. 任务分解
+
+### 2.1. 动态布局与国际化 (i18n)
+
+**目标：** 创建一个能根据租户配置动态变换外观和语言的网站框架。
+
+- **页面:** `/app/(client)/layout.tsx`
+- **功能:**
+  - **获取租户配置:** 在服务器端，从中间件注入的请求中获取`tenant`对象。
+  - **应用主题:** 将`tenant.themePrimaryColor`等值注入到CSS变量中。在Header中显示`tenant.themeLogoUrl`，在Footer中显示`tenant.contactPhone`等信息。
+  - **国际化 (i18n) 配置:**
+    - 使用`next-intl`库进行国际化。
+    - 中间件将检查当前访问的语言（如`/en`, `/fr`）是否在租户的`supported_locales`配置中，如果不在则重定向。
+    - Header中的语言切换器将只显示租户支持的语言选项。
+
+### 2.2. 租户级客户端认证
+
+**目标：** 确保客户的注册和登录行为严格绑定在当前商家网站内。
+
+- **客户注册页面 (`/register`):**
+  - **UI:** 一个标准的注册表单，包含`用户名`, `邮箱`, `电话`字段。
+  - **API (`/api/auth/register`):**
+    1. 从请求中获取`tenantId`。
+    2. 验证表单数据。
+    3. 检查该邮箱是否已在**当前租户**下注册 (`SELECT * FROM users WHERE email = ? AND tenantId = ?`)。
+    4. 生成一个6位随机PIN码，并使用`bcrypt`进行哈希。
+    5. 在`users`表中创建一条新记录，包含`tenantId`和哈希后的PIN码。
+    6. 调用Resend API发送PIN码邮件。**邮件模板将动态使用当前租户的品牌名称和Logo**。
+
+- **客户登录页面 (`/login`):**
+  - **UI:** 一个标准的登录表单，包含`邮箱`, `PIN码`字段。
+  - **API (`/api/auth/login`):**
+    1. 从请求中获取`tenantId`。
+    2. 根据`email`和`tenantId`查询`users`表。
+    3. 如果找到用户，则使用`bcrypt.compare()`比对传入的PIN码和数据库中的哈希值。
+    4. 验证成功后，创建会话 (Session)，其中包含`userId`和`tenantId`。
+
+### 2.3. 租户级石料产品展示
+
+**目标：** 为客户创建一个美观、实用的产品浏览体验，且只展示当前商家的商品。
+
+- **页面:** `/browse`
+- **功能:**
+  - **数据获取:** 在服务器端获取数据，查询`inventory_stones`表时，必须包含`WHERE tenantId = ? AND isActive = true`条件。
+  - **UI展示:**
+    - 以网格布局展示石料图片、多语言名称 (`name` jsonb字段) 和类型。
+    - **图片免责声明:** 在图片附近用小字号清晰展示"图片仅供参考，请以实物为准"的免责声明。
+  - **筛选与搜索:**
+    - 提供按石料类型 (`stoneType`) 的筛选器。
+    - 提供一个搜索框，可以按品牌 (`brand`) 或系列 (`series`) 进行搜索。
+
+### 2.4. 租户级客户个人中心
+
+**目标：** 为登录后的客户提供一个管理个人信息和查看订单历史的私密空间。
+
+- **页面:** `/account` (受保护路由，需要登录)
+- **功能:**
+  - **个人信息:** 显示当前登录用户的`username`, `email`, `phone`和剩余的`aiCredits`。
+  - **历史报价请求:**
+    - 查询`client_orders`表，条件为`WHERE userId = ? AND tenantId = ?`。
+    - 以列表形式展示所有历史订单，包含`石料选择`, `提交日期`, `状态`, `最终报价`。
+    - **条件化展示逻辑:**
+      - 如果`status`为`pending_quote`，显示"商家正在抓紧报价，请耐心等待"。
+      - 如果`status`为`quoted`，则清晰地展示`finalQuotePrice`。
+      - 如果客户还未提交任何信息，则引导客户去填写报价表单。
+  - **报价表单:**
+    - 一个用于提交新报价请求的表单。
+    - **石料选择:** 一个下拉框，只显示当前租户的活跃石料 (`inventory_stones` where `tenantId` = ? AND `isActive` = true)。
+    - **"不确定石料"选项:** 提供一个"不确定/让AI推荐"的选项。选中后，石料下拉框禁用，并显示一个文本框让客户描述需求，对应数据库的`stoneSelectionText`字段。
+    - **备注字段:** 提供一个多行文本框，让客户可以填写额外的需求，对应数据库的`notes`字段。
+
+---
+
+完成此模块后，SaaS平台的前台将完全成型。不同的商家将拥有视觉上独立、数据上隔离的专属网站，而所有这些网站都由我们统一的代码库驱动，实现了真正的"白标SaaS"模式。
+
+---
+
+# ==============================================================================
+# 模块四：AI聊天机器人 (The Chatbot Experience)
+# ==============================================================================
+
+**开发目标：** 开发项目的核心亮点功能——一个能感知租户、支持个性化配置、且具备双层安全护栏的AI导购聊天机器人。这是实现业务自动化和提升用户体验的灵魂所在。
+
+## 1. 核心架构：租户感知的智能对话系统
+
+本模块将基于Vercel AI SDK构建，并深度整合我们在前几个模块中建立的多租户基础设施。
+
+- **动态系统提示词 (Dynamic System Prompt):** AI的角色、人格和知识范围将不再是硬编码的，而是根据当前租户的配置（`tenants.name`, `tenants.aiSystemPrompt`）在每次对话开始时动态生成。
+- **租户隔离的工具调用 (Tenant-Isolated Tool Calling):** AI在执行查询库存、生成图片等操作时，所有对数据库和云存储的访问都将严格限制在当前`tenantId`的数据范围内。
+- **分层成本控制 (Layered Cost Control):** 我们将同时追踪和限制**单个用户**的AI信用额度（`users.aiCredits`）和**整个租户**的月度AI总预算（`tenants.aiMonthlyBudget`），确保成本可控。
+- **功能开关 (Feature Flag):** 整个聊天机器人功能将受`tenants.featureChatbot`开关控制，为商家提供灵活的订阅选项。
+
+## 2. 任务分解
+
+### 2.1. 前端聊天界面 (`/chat`)
+
+**目标：** 构建一个流畅、响应式的聊天UI，并集成文件上传和额度显示功能。
+
+- **技术选型:** 使用Vercel AI SDK提供的`useChat` React Hook，它可以极大地简化聊天状态管理、消息流处理和API调用。
+- **功能实现:**
+  - **功能开关检查:** 在页面加载时，首先检查当前租户的`featureChatbot`是否为`true`。如果为`false`，则显示"此功能未开启"的提示，或直接重定向。
+  - **UI组件:** 构建一个包含消息展示区、用户输入框、发送按钮和文件上传按钮的标准聊天界面。
+  - **额度显示:** 在界面显著位置（如输入框上方）实时显示当前登录用户的剩余AI信用额度 (`aiCredits`)。
+  - **图片上传:** 集成文件上传组件，允许用户上传厨房、卫生间等场景照片。上传的图片将用于VLM分析。
+
+### 2.2. 后端对话API (`/api/chat`)
+
+**目标：** 实现所有核心对话逻辑，包括安全、工具调用、成本控制和数据持久化。这是本模块最复杂的部分。
+
+**API处理流程:**
+
+1. **获取上下文:** 从会话和中间件中获取`userId`和`tenantId`。
+2. **权限与额度检查 (前置守卫):**
+   - 再次确认`tenants.isActive`和`tenants.featureChatbot`为`true`。
+   - 查询`users`表获取`aiCredits`，查询`tenants`表获取`aiMonthlyBudget`。
+   - 如果任一额度低于某个阈值（如$0.01），则直接返回错误信息，拒绝处理请求。
+3. **动态系统提示词构建:**
+   - 根据`tenantId`获取商家名称等信息。
+   - 检查`tenants.aiSystemPrompt`字段。如果存在，则使用该字段作为AI人设和规则的基础；如果不存在，则使用下面的标准模板。
+   - 将商家名称、联系方式等信息动态地注入到最终的系统提示词中。
+4. **双层安全护栏:**
+   - **第一层 (API Pre-check):** 在调用LLM之前，对用户输入进行简单的关键词匹配或意图分类。如果问题明显无关（如"写一首诗"、"今天天气怎么样"），则直接返回预设的拒绝回答，不调用LLM。
+   - **第二层 (System Prompt Guardrail):** 在系统提示词中明确、严厉地规定AI的角色和话题边界，并提供多语言拒绝话术模板，防止"越狱"。
+5. **工具调用 (Tool Calling) 实现:**
+   - 定义三个核心工具，并将其提供给LLM：
+     - `get_stone_inventory({ query: string, tags: string[] })`: 查询石料库存。**实现时必须在SQL查询中加入`WHERE tenantId = ?`**。
+     - `analyze_scene_image({ imageUrl: string })`: 调用GPT-4o等VLM模型，分析用户上传的场景图片，提取风格、颜色、物体等信息。
+     - `generate_stone_rendering({ stoneImageUrl: string, sceneDescription: string })`: 调用Nano Banana Pro API，将指定的石料图渲染到用户场景中。
+6. **成本追踪与扣减:**
+   - 使用Vercel AI SDK提供的`onFinish`回调和`experimental_streamData`功能。
+   - 在回调中获取本次对话的Token使用量和模型信息。
+   - 根据预设的模型价格计算出本次调用的精确成本。
+   - 在一个数据库事务中，同时更新`users.aiCredits`和`tenants.aiMonthlyBudget`，完成扣费。
+7. **数据持久化:**
+   - 用户上传的图片和AI生成的渲染图，都应调用`/lib/r2.ts`中的上传函数（该函数已包含`tenantId`路径前缀），存入R2。
+   - 将返回的图片URL与当前`orderId`关联，存入`order_photos`表。
+
+### 2.3. 系统提示词工程 (System Prompt)
+
+**目标：** 创建一个强大、可靠、且能感知租户的系统提示词。这是确保AI行为符合预期的关键。
+
+**标准模板 (可被`tenants.aiSystemPrompt`覆盖):**
+
+```
+## Base Instructions
+You are a professional, patient, and helpful interior design consultant specializing in stone materials. Your name is [AI Name], and you work for {{tenant.name}}.
+
+## Core Mission
+Your primary goal is to help clients choose the perfect stone (quartz, granite, marble, etc.) for their project (e.g., kitchen countertop, bathroom vanity). You must guide them through the selection process, answer their questions about materials, and ultimately help them submit a quote request.
+
+## Topic Guardrails (VERY IMPORTANT)
+- **ALLOWED TOPICS:** You can ONLY discuss topics directly related to stone materials, interior design, countertops, color matching, and the services offered by {{tenant.name}}. This includes answering questions about our inventory, the pros and cons of different materials, and generating visualizations.
+- **FORBIDDEN TOPICS:** You are strictly forbidden from answering any questions unrelated to this business. This includes, but is not limited to: writing poems, telling jokes, providing general knowledge, discussing politics, giving financial advice, or acting as a general-purpose chatbot.
+
+## Refusal Protocol
+If a user asks an off-topic question, you MUST politely but firmly decline using one of the following pre-approved responses. Do not apologize or explain further.
+- **English:** "I can only assist with questions about our stone products and design services. How can I help you with your project today?"
+- **Français:** "Je ne peux répondre qu'aux questions concernant nos produits en pierre et nos services de design. Comment puis-je vous aider avec votre projet aujourd'hui?"
+- **中文:** "我只能回答关于我们的石材产品和设计服务的问题。请问在您的项目上，我能如何帮助您？"
+
+## Workflow
+1. Start by greeting the user and introducing yourself on behalf of {{tenant.name}}.
+2. Encourage the user to upload a photo of their space (e.g., kitchen).
+3. If a photo is uploaded, use the `analyze_scene_image` tool to understand the context.
+4. Ask clarifying questions to understand their needs (e.g., style preference, color, budget).
+5. Use the `get_stone_inventory` tool to find matching stones from our inventory.
+6. Present the options to the user. If they are interested, use the `generate_stone_rendering` tool to show them a visualization.
+7. Once the user is satisfied, guide them to their account page to submit a formal quote request.
+
+## Contact Information
+If you cannot help, or if the user wants to speak to a human, provide them with the contact information for {{tenant.name}}: Phone: {{tenant.contactPhone}}, Email: {{tenant.contactEmail}}.
+```
+
+---
+
+完成此模块后，你的SaaS平台将拥有一个真正智能的、商业化的、且在多租户环境下安全可控的AI核心功能。这将是吸引和留住商家的最大卖点。
+
+---
+
+# ==============================================================================
+# 模块五：业务闭环与报价流程 (Quoting & Business Logic)
+# ==============================================================================
+
+**开发目标：** 将客户端的AI体验与后台的商业报价流程在多租户环境下完美地连接起来，形成一个自动化、可追踪、且品牌一致的商业闭环。
+
+## 1. 核心架构：租户隔离的订单生命周期管理
+
+本模块的核心是将前台用户的行为（提交报价请求）转化为后台商家的可操作任务（进行报价），并确保整个流程中的数据流和状态变更都严格限制在各自的租户（`tenantId`）范围内。
+
+- **数据流:** `Chatbot/客户个人中心 -> 提交报价请求API -> 创建client_orders记录 -> 租户后台看到新订单 -> 租户后台更新报价 -> 客户个人中心看到新报价`
+- **关键原则:** 任何对`client_orders`表的读写操作，都必须在SQL查询中包含`WHERE tenantId = ?`条件，杜绝数据串扰。
+
+## 2. 任务分解
+
+### 2.1. AI到报价的无缝切换
+
+**目标：** 优化用户体验，当客户在Chatbot中确定意向后，能一键进入预填好信息的报价表单。
+
+- **实现方式:**
+  - 当AI导购结束时，生成一个指向客户个人中心报价表单的链接。
+  - 该链接将携带参数，例如：`/account/new-quote?stoneId=123`。
+  - 客户个人中心的报价表单页面将解析URL参数，并自动在石料下拉框中选中ID为`123`的石料，减少客户的重复操作。
+
+### 2.2. 租户级报价请求提交
+
+**目标：** 创建一个安全的API端点，用于接收客户的最终报价请求并将其与正确的租户关联。
+
+- **API端点:** `/api/orders` (POST)
+- **处理流程:**
+  1. **获取上下文:** 从会话和中间件中获取`userId`和`tenantId`。
+  2. **严格校验:** 在服务器端强制检查所有必填项（如`stoneId`或`stoneSelectionText`, `desiredDate`等）是否完整。不完整的请求直接返回400错误，防止创建不完整的数据。
+  3. **创建订单:** 在`client_orders`表中创建一条新记录，确保`userId`和`tenantId`都被正确填充。
+  4. **触发通知:** 订单创建成功后，立即触发向商家发送新订单提醒的邮件。
+
+### 2.3. 订单状态生命周期管理
+
+**目标：** 定义一个清晰的订单状态机，并在前后端同步状态变更。
+
+- **订单状态 (`client_orders.status`):**
+  - `pending_quote`: 待报价 (初始状态)
+  - `quoted`: 已报价
+  - `in_progress`: 进行中 (客户接受报价后)
+  - `completed`: 已完成
+  - `cancelled`: 已取消
+- **状态变更逻辑:**
+  - **客户提交 -> `pending_quote`**: 由`/api/orders` API在创建订单时设置。
+  - **商家报价 -> `quoted`**: 由租户后台`/admin/orders/[id]`页面在商家填写`finalQuotePrice`后更新。
+  - **其他状态**: 由租户后台管理员手动更新。
+- **前端状态同步:** 客户个人中心的`/account`页面通过定期重新获取数据（SWR或React Query）或WebSocket来展示最新的订单状态和报价金额。
+
+### 2.4. 动态双向邮件通知系统 (Resend)
+
+**目标：** 创建一个能感知租户品牌、实现自动化沟通的邮件通知系统。
+
+- **核心原则:** 所有邮件模板都将是动态的，使用从`tenants`表获取的数据来填充品牌信息。
+
+- **通知一：新报价请求 -> 通知商家**
+  - **触发时机:** 客户成功提交报价请求后。
+  - **收件人:** `tenants.contactEmail` (商家的联系邮箱)。
+  - **邮件内容:**
+    - **主题:** `【{{tenant.name}}】您有一条新的报价请求`
+    - **正文:** 包含客户姓名、联系方式、选定石料、期望日期、客户备注等所有关键信息，并提供一个直接跳转到租户后台该订单详情页的链接。
+
+- **通知二：报价完成 -> 通知客户**
+  - **触发时机:** 商家在后台填写完报价并保存后。
+  - **收件人:** `users.email` (客户的注册邮箱)。
+  - **发件人名称:** `{{tenant.name}}`
+  - **回复至 (Reply-To):** `tenants.contactEmail` (确保客户回复邮件时，邮件直接发给商家)。
+  - **邮件内容:**
+    - **主题:** `来自{{tenant.name}}的报价已准备好`
+    - **正文:** 使用商家Logo和主色调。告知客户其关于`[石料名称]`的报价已经完成，并提供一个链接引导其登录个人中心查看详情。
+
+---
+
+完成此模块后，整个SaaS平台的核心商业流程将完全打通。从客户产生意向到商家完成报价，整个过程实现了自动化、品牌化和租户隔离，为平台的商业运营提供了坚实的基础。
+
+---
+
+# ==============================================================================
+# 模块六：交互式3D场景重建 (Interactive 3D Scene Reconstruction)
+# ==============================================================================
+
+**开发目标：** 将前沿的3D Gaussian Splatting技术作为一个独立的、可按需为商家开启的增值服务，为SaaS平台构建强大的技术壁垒和销售亮点。
+
+## 1. 核心架构：租户隔离的异步3D重建流程
+
+本模块将集成World Labs的World API，通过一个异步任务流，为指定商家的客户提供从2D图片到3D交互式场景的重建能力。
+
+- **功能开关 (Feature Flag):** 整个功能由`tenants.feature3dReconstruction`布尔字段控制。未购买此服务的商家，其客户将无法看到或使用此功能。
+- **异步工作流 (Asynchronous Workflow):** 3D重建是一个耗时操作（约5分钟）。我们将采用异步轮询机制，前端发起请求后可立即离开，后端任务完成后自动更新数据，提供流畅的用户体验。
+- **数据与成本隔离 (Data & Cost Isolation):** 调用World API的成本将从租户的月度AI总预算 (`tenants.aiMonthlyBudget`) 中扣除。生成的3D模型文件（SPZ格式）将备份到商家在R2上的专属路径下，确保数据主权和隔离。
+
+## 2. 任务分解
+
+### 2.1. 数据库Schema扩展
+
+**目标：** 在现有数据库结构中增加字段以存储3D模型信息。
+
+- **修改 `order_photos` 表:**
+  - 在 `/drizzle/schema.ts` 的 `order_photos` 表中增加一个新字段，用于存储最终生成的3D模型URL。
+
+  ```typescript
+  // in order_photos table
+  gaussianSplatUrl: text("gaussian_splat_url"), // 存储我们自己R2上的SPZ文件URL
+  ```
+
+### 2.2. 后端异步重建API (`/api/reconstruction`)
+
+**目标：** 创建一个API端点来启动和管理3D重建任务。
+
+- **API端点:** `/api/reconstruction` (POST)
+- **请求体:** `{ "orderId": number, "imageId": number }` (要重建的订单ID和源图片ID)
+- **处理流程:**
+  1. **获取上下文与权限检查:**
+     - 从会话和中间件获取`userId`和`tenantId`。
+     - 查询`tenants`表，确认`isActive`和`feature3dReconstruction`均为`true`。
+     - 检查`tenants.aiMonthlyBudget`是否充足。
+  2. **获取源图片URL:** 根据`imageId`和`tenantId`查询`order_photos`表，获取要重建的图片在R2上的URL。
+  3. **调用World API启动任务:**
+     - 向`https://api.worldlabs.ai/v1/worlds:generate`发送POST请求。
+     - 请求体中包含图片URL，并可指定生成质量（推荐`MARBLE_0_1_PLUS`，成本$1.26）。
+     - API会立即返回一个`operationId`。
+  4. **启动异步轮询任务:**
+     - **【关键】** 不要让前端等待。将`operationId`, `orderId`, `imageId`, `tenantId`等信息存入一个队列系统（如Upstash QStash或Vercel Cron Jobs触发的函数）。
+     - 轮询任务每隔30秒向`https://api.worldlabs.ai/v1/operations/{operationId}`发送GET请求检查状态。
+  5. **任务完成处理:**
+     - 当轮询任务发现状态变为`succeeded`时，从返回结果中获取World Labs托管的`.spz`文件URL。
+     - **备份SPZ文件:** 下载该SPZ文件，并将其上传到我们自己的R2存储桶中，路径为`/{tenantId}/splats/{orderId}.spz`。
+     - **更新数据库:** 将我们自己R2上的SPZ文件URL更新到`order_photos`表中对应的`gaussianSplatUrl`字段。
+
+### 2.3. 前端交互与3D渲染
+
+**目标：** 在客户端为符合条件的客户提供发起重建和查看3D场景的交互界面。
+
+- **发起重建按钮:**
+  - 在客户个人中心的订单详情页 (`/account/orders/[id]`)。
+  - **条件化显示:** 仅当`tenant.feature3dReconstruction`为`true`，且该订单的图片尚未生成3D模型时，在AI渲染图旁边显示一个"生成交互式3D场景"按钮。
+  - 点击按钮后，调用`/api/reconstruction` API，并向用户显示"正在处理中，大约需要5分钟，完成后您将在此处看到入口"的提示。
+
+- **3D场景查看器页面:**
+  - **页面:** `/account/orders/[id]/3d-view`
+  - **数据获取:** 页面加载时，根据`orderId`和`tenantId`查询`order_photos`表，获取`gaussianSplatUrl`。
+  - **渲染器集成 (SparkJS):**
+    1. 安装SparkJS: `npm install @sparkjsdev/spark`
+    2. 创建一个React组件 (`<SplatViewer />`)，接收SPZ文件的URL作为prop。
+    3. 在该组件中，使用`useEffect`初始化一个THREE.js场景，并加载SparkJS渲染器。
+    4. 核心代码如下：
+
+        ```javascript
+        import { SplatMesh } from '@sparkjsdev/spark';
+        import { Scene, WebGLRenderer, PerspectiveCamera } from 'three';
+
+        const SplatViewer = ({ url }) => {
+          const canvasRef = useRef(null);
+
+          useEffect(() => {
+            const scene = new Scene();
+            const renderer = new WebGLRenderer({ canvas: canvasRef.current });
+            const camera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+            const splat = new SplatMesh({ url });
+            scene.add(splat);
+
+            // ... 设置相机位置、渲染循环等 ...
+
+          }, [url]);
+
+          return <canvas ref={canvasRef} />;
+        };
+        ```
+
+- **查看入口:**
+  - 在订单详情页，如果`gaussianSplatUrl`字段存在，则将"生成3D场景"按钮替换为"进入交互式3D场景"的链接，指向`/account/orders/[id]/3d-view`。
+
+---
+
+完成此模块后，你的SaaS平台将拥有一个极具吸引力的高级增值功能。它不仅能为你的客户（商家）带来直接的业务优势，也能为你自己带来更高的客单价和更强的市场竞争力。
+
+---
+
+# ==============================================================================
+# 附录：World Labs API + SparkJS 技术详情
+# ==============================================================================
+
+## 1. World Labs API - 完整技术细节
+
+### 输入
+- 支持**单张图片**（非全景）作为输入，通过3种方式：
+  - **UriReference**: 直接传递公开可访问的URL（完美适配我们的R2图片）
+  - **MediaAssetReference**: 先通过他们的Media Assets API上传
+  - **DataBase64Reference**: 传递base64编码的图片数据
+- 还支持：文本提示、全景图片、多图片、视频
+
+### 输出格式: SPZ (不是PLY)
+- **SPZ** = 压缩的3D Gaussian Splatting格式（不是PLY）
+- 提供三种分辨率等级：100k, 500k, full_res（高斯点数量）
+- 每个world的额外输出：
+  - `world_marble_url`: Marble托管查看器的直接链接
+  - `assets.imagery.pano_url`: 全景图像
+  - `assets.imagery.thumbnail_url`: 缩略图
+  - `assets.geometry.splat_url`: SPZ文件URL（含分辨率变体）
+  - `assets.geometry.collider_url`: GLB网格文件
+  - `caption`: 生成世界的文本描述
+
+### SPZ转PLY转换（如需要）
+- 官方FAQ确认：API只输出SPZ，不是PLY
+- 可用转换库：
+  - C++: https://github.com/nianticlabs/spz
+  - TypeScript: https://github.com/arrival-space/spz-js
+  - Web工具: https://spz-to-ply.netlify.app
+- **但我们不需要转换**，因为SparkJS原生支持SPZ
+
+### 定价（已确认）
+- 积分：$1.00 USD = 1,250积分
+- 积分不过期
+- 最低购买：$5.00（6,250积分）
+
+**Marble 0.1-plus (标准/生产质量):**
+| 输入类型 | Pano生成 | World生成 | 总积分 | USD成本 |
+|---|---|---|---|---|
+| 图片(全景) | 0 | 1,500 | 1,500 | $1.20 |
+| 图片(非全景) | 80 | 1,500 | 1,580 | **$1.26** |
+| 文本 | 80 | 1,500 | 1,580 | $1.26 |
+
+**Marble 0.1-mini (草稿/预览质量):**
+| 输入类型 | Pano生成 | World生成 | 总积分 | USD成本 |
+|---|---|---|---|---|
+| 图片(全景) | 0 | 150 | 150 | $0.12 |
+| 图片(非全景) | 80 | 150 | 230 | **$0.18** |
+| 文本 | 80 | 150 | 230 | $0.18 |
+
+### 速率限制
+- 每分钟6个world生成请求（每用户，不是每API密钥）
+- 超出返回429错误，重置后重试
+
+### 生成时间
+- Marble 0.1-plus: 每个world约5分钟
+- Marble 0.1-mini: 每个world约30-45秒
+
+### API计费
+- **独立于** Marble web应用计费
+- 必须在 platform.worldlabs.ai 购买积分（不是 marble.worldlabs.ai）
+- 支持自动充值
+
+## 2. 查看器选项分析
+
+### 选项A: Marble托管查看器 (iframe嵌入)
+- 每个world获得 `world_marble_url`: `https://marble.worldlabs.ai/world/{world_id}`
+- **未知**: 是否可以在iframe中嵌入（需测试X-Frame-Options）
+- **未知**: 是否无需登录即可公开访问
+- **风险**: 依赖World Labs托管；URL可能变更或下线
+
+### 选项B: SparkJS (自托管查看器) ← 推荐
+- **GitHub**: https://github.com/sparkjsdev/spark (1.8k星, MIT许可证, 17位贡献者)
+- **npm**: `npm install @sparkjsdev/spark`
+- **也可通过CDN**: `https://sparkjs.dev/releases/spark/0.1.10/spark.module.js`
+- 基于THREE.js，支持WebGL2（98%+设备支持）
+- **原生支持SPZ格式**（以及PLY, SPLAT, KSPLAT, SOG）
+- 支持桌面和移动端
+- MIT许可证 = 商业免费使用
+
+### 最小SparkJS代码示例（来自README）:
+```javascript
+import * as THREE from "three";
+import { SplatMesh } from "@sparkjsdev/spark";
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const splatURL = "https://example.com/scene.spz";
+const splat = new SplatMesh({ url: splatURL });
+splat.position.set(0, 0, -3);
+scene.add(splat);
+
+renderer.setAnimationLoop(function animate(time) {
+  renderer.render(scene, camera);
+});
+```
+
+### 选项C: 开源PLY查看器
+- 不推荐，因为输出原生是SPZ
+- 需要额外转换步骤
+- 示例：@mkkellogg/gaussian-splats-3d, gsplat.js
+
+## 3. 推荐架构决策
+
+**使用SparkJS（选项B）**，因为：
+1. 原生支持World Labs API的SPZ格式 - 无需转换
+2. MIT许可证，开源，积极维护（1.8k星）
+3. 通过WebGL2支持桌面+移动端
+4. 可通过npm安装到我们的Next.js项目
+5. 完全控制UI/UX（加载状态、相机控制、品牌）
+6. 不依赖World Labs的Marble托管查看
+7. 基于THREE.js = 巨大的插件生态（OrbitControls等）
+
+**备选方案**: 同时在数据库中存储 `world_marble_url` 作为备用查看链接
+
+## 4. 关键集成流程
+
+1. 客户在订单页点击"生成3D场景"按钮
+2. 前端调用我们的API: `POST /api/reconstruction`
+3. 我们的API调用World Labs: `POST /marble/v1/worlds:generate` 传入R2图片URL
+4. World Labs返回 `operation_id`（异步，plus约5分钟，mini约30秒）
+5. 我们的API轮询: `GET /marble/v1/operations/{operation_id}` 直到完成
+6. 完成时，从响应中提取 `splat_url` (SPZ) 和 `world_marble_url`
+7. 将两个URL保存到我们的数据库
+8. 前端通过SparkJS加载SPZ文件并在 `<canvas>` 元素中渲染
+
+## 5. 我们用例的成本模型
+
+每次客户3D场景生成：
+- **草稿预览** (mini): ~$0.18 每场景（30-45秒）
+- **生产质量** (plus): ~$1.26 每场景（5分钟）
+
+策略：先生成mini预览，客户确认后再生成plus最终版。或者直接用plus，因为$1.26非常合理。
+
+## 6. 重要注意事项
+- 生成的world保留在World Labs服务器上（URL根据文档似乎不会过期）
+- 但我们应该下载并将SPZ文件存储在自己的R2作为备份
+- SPZ文件已压缩，存储成本很低
+- plus的5分钟生成时间意味着我们需要良好的等待UX（进度指示器）
+
+---
+
+# ==============================================================================
+# 开发顺序与里程碑
+# ==============================================================================
+
+按照以下顺序开发，每个模块完成后提交Git并标记为Milestone：
+
+1. **Milestone 1:** 模块一 - 项目基石与核心服务
+2. **Milestone 2:** 模块二 - 后台管理核心
+3. **Milestone 3:** 模块三 - 客户端认证与产品展示
+4. **Milestone 4:** 模块四 - AI聊天机器人
+5. **Milestone 5:** 模块五 - 业务闭环与报价流程
+6. **Milestone 6:** 模块六 - 交互式3D场景重建
+
+**重要原则：**
+1. **租户隔离:** 所有数据库查询必须包含 `WHERE tenantId = ?`
+2. **R2路径:** 所有文件存储为 `/{tenantId}/...`
+3. **功能开关:** 启用UI/API功能前先检查
+4. **成本控制:** 同时追踪用户积分和租户预算
+5. **测试:** 创建租户隔离测试
+6. **安全:** 永远不要信任客户端租户数据，始终从会话验证
+
+从Milestone 1开始，完整完成每个milestone后再进入下一个。每个重要功能后提交Git。频繁运行测试。

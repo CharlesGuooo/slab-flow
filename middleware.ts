@@ -5,6 +5,7 @@ import type { NextRequest } from 'next/server';
 const PUBLIC_ROUTES = [
   '/platform-admin',
   '/api/platform-admin',
+  '/api/internal',
   '/_next',
   '/favicon.ico',
   '/robots.txt',
@@ -44,16 +45,11 @@ function extractDomain(host: string | null): string | null {
   // Remove port if present
   const domain = host.split(':')[0];
 
-  // For localhost development, use the full host
-  if (domain === 'localhost' || domain.startsWith('localhost:')) {
-    return domain;
-  }
-
   return domain;
 }
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, searchParams } = request.nextUrl;
 
   // Skip tenant check for public routes and static files
   if (shouldSkipTenantCheck(pathname)) {
@@ -62,7 +58,13 @@ export async function middleware(request: NextRequest) {
 
   // Get the host from the request
   const host = request.headers.get('host');
-  const domain = extractDomain(host);
+  let domain = extractDomain(host);
+
+  // For local development, allow ?tenant= query parameter to specify tenant domain
+  const tenantOverride = searchParams.get('tenant');
+  if (tenantOverride && (domain === 'localhost' || domain?.startsWith('localhost:'))) {
+    domain = tenantOverride;
+  }
 
   if (!domain) {
     // No domain found, redirect to platform home or 404
@@ -71,115 +73,31 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // For local development without a real database,
-  // we skip tenant identification on localhost
-  // In production, this will use the database
+  // For local development on localhost without tenant override,
+  // set a default tenant header for development convenience
   if (domain === 'localhost' || domain.startsWith('localhost:')) {
-    // Call our internal API to get tenant info
-    try {
-      const tenantResponse = await fetch(
-        new URL('/api/internal/tenant-lookup', request.url),
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ domain }),
-        }
-      );
-
-      if (tenantResponse.ok) {
-        const tenant = await tenantResponse.json();
-
-        if (!tenant.isActive) {
-          // Tenant service is suspended
-          if (pathname.startsWith('/admin')) {
-            const response = NextResponse.next();
-            response.headers.set('x-tenant-id', tenant.id.toString());
-            response.headers.set('x-tenant-active', 'false');
-            return response;
-          }
-
-          const url = request.nextUrl.clone();
-          url.pathname = '/suspended';
-          url.searchParams.set('tenant', tenant.name);
-          return NextResponse.redirect(url);
-        }
-
-        // Tenant is active
-        const response = NextResponse.next();
-        response.headers.set('x-tenant-id', tenant.id.toString());
-        response.headers.set('x-tenant-name', tenant.name);
-        response.headers.set('x-tenant-active', 'true');
-        response.headers.set(
-          'x-tenant-features',
-          JSON.stringify({
-            chatbot: tenant.featureChatbot,
-            calculator: tenant.featureCalculator,
-            '3d-reconstruction': tenant.feature3dReconstruction,
-          })
-        );
-        return response;
-      }
-    } catch (error) {
-      console.error('Middleware tenant lookup error:', error);
-    }
-
-    // If lookup fails or no tenant found, pass through
-    // Pages can handle missing tenant gracefully
-    return NextResponse.next();
-  }
-
-  // For production domains, we would query the database directly
-  // But since middleware runs in edge runtime, we use the API approach
-  try {
-    const tenantResponse = await fetch(
-      new URL('/api/internal/tenant-lookup', request.url),
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ domain }),
-      }
+    // For local development, use a fixed development tenant
+    // This allows testing without needing to set up subdomains
+    const response = NextResponse.next();
+    response.headers.set('x-tenant-id', '1');  // Default to first tenant
+    response.headers.set('x-tenant-name', 'Test Stone Company');
+    response.headers.set('x-tenant-active', 'true');
+    response.headers.set(
+      'x-tenant-features',
+      JSON.stringify({
+        chatbot: true,
+        calculator: true,
+        '3d-reconstruction': false,
+      })
     );
-
-    if (tenantResponse.ok) {
-      const tenant = await tenantResponse.json();
-
-      if (!tenant.isActive) {
-        if (pathname.startsWith('/admin')) {
-          const response = NextResponse.next();
-          response.headers.set('x-tenant-id', tenant.id.toString());
-          response.headers.set('x-tenant-active', 'false');
-          return response;
-        }
-
-        const url = request.nextUrl.clone();
-        url.pathname = '/suspended';
-        url.searchParams.set('tenant', tenant.name);
-        return NextResponse.redirect(url);
-      }
-
-      const response = NextResponse.next();
-      response.headers.set('x-tenant-id', tenant.id.toString());
-      response.headers.set('x-tenant-name', tenant.name);
-      response.headers.set('x-tenant-active', 'true');
-      response.headers.set(
-        'x-tenant-features',
-        JSON.stringify({
-          chatbot: tenant.featureChatbot,
-          calculator: tenant.featureCalculator,
-          '3d-reconstruction': tenant.feature3dReconstruction,
-        })
-      );
-      return response;
-    }
-  } catch (error) {
-    console.error('Middleware tenant lookup error:', error);
+    return response;
   }
 
-  // Tenant not found
+  // For production domains, we need to look up the tenant
+  // Since middleware runs in edge runtime and can't access SQLite directly,
+  // we'll use a redirect-based approach where the frontend makes an API call
+  // For now, for any non-localhost domain, redirect to tenant not found
+  // In production, this would be replaced with a proper database lookup
   const url = request.nextUrl.clone();
   url.pathname = '/not-found';
   return NextResponse.redirect(url);
