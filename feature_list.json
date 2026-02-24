@@ -1,0 +1,1263 @@
+[
+  {
+    "category": "functional",
+    "description": "Module 1: Next.js project initializes successfully with TypeScript, ESLint, Tailwind CSS, and App Router",
+    "steps": [
+      "Step 1: Run 'npx create-next-app@latest slabflow' with all required options",
+      "Step 2: Verify package.json contains next, react, typescript, eslint, tailwindcss dependencies",
+      "Step 3: Verify app directory structure exists with layout.tsx and page.tsx",
+      "Step 4: Run 'npm run dev' and verify application starts on port 3000",
+      "Step 5: Navigate to http://localhost:3000 and verify default page loads"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 1: Drizzle ORM and Neon serverless dependencies install correctly",
+    "steps": [
+      "Step 1: Run 'npm install drizzle-orm @neondatabase/serverless'",
+      "Step 2: Run 'npm install -D drizzle-kit typescript'",
+      "Step 3: Verify dependencies appear in package.json",
+      "Step 4: Verify no installation errors occur"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 1: Database schema defines tenants table with all required fields",
+    "steps": [
+      "Step 1: Create /drizzle/schema.ts file",
+      "Step 2: Define tenants table with id, name, domain, isActive fields",
+      "Step 3: Define theme fields (themePrimaryColor, themeLogoUrl, themeBannerUrl)",
+      "Step 4: Define feature flags (featureChatbot, featureCalculator, feature3dReconstruction)",
+      "Step 5: Define contact fields (contactPhone, contactEmail, address)",
+      "Step 6: Define AI config fields (aiSystemPrompt, aiMonthlyBudget)",
+      "Step 7: Verify schema exports tenants table correctly"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 1: Database schema defines users table with tenant relationship",
+    "steps": [
+      "Step 1: Define users table with id, tenantId foreign key, username, email, phone fields",
+      "Step 2: Include pin field for hashed PIN storage",
+      "Step 3: Include aiCredits field with decimal type",
+      "Step 4: Include createdAt timestamp",
+      "Step 5: Verify foreign key relationship to tenants table is correct"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 1: Database schema defines admins table with role-based access",
+    "steps": [
+      "Step 1: Define admins table with id, tenantId (nullable for super_admin), role enum fields",
+      "Step 2: Role enum includes 'super_admin' and 'tenant_admin' values",
+      "Step 3: Include email with unique constraint and passwordHash fields",
+      "Step 4: Verify tenantId can be NULL for super admins",
+      "Step 5: Verify foreign key relationship to tenants table"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 1: Database schema defines inventory_stones table with multi-language support",
+    "steps": [
+      "Step 1: Define inventory_stones table with tenantId foreign key",
+      "Step 2: Include brand, series, stoneType enum (quartz, granite, marble, quartzite, porcelain)",
+      "Step 3: Include pricePerSlab with decimal precision",
+      "Step 4: Include imageUrl for stone images",
+      "Step 5: Include name and description as jsonb for multi-language support",
+      "Step 6: Include tags as jsonb for internal tagging",
+      "Step 7: Include isActive boolean for soft delete",
+      "Step 8: Include createdAt timestamp"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 1: Database schema defines client_orders table with complete order tracking",
+    "steps": [
+      "Step 1: Define client_orders table with tenantId and userId foreign keys",
+      "Step 2: Include stoneId foreign key and stoneSelectionText for custom selections",
+      "Step 3: Include desiredDate enum (ASAP, within_2_weeks, within_a_month, not_in_a_hurry)",
+      "Step 4: Include isContractor boolean and totalBudget decimal",
+      "Step 5: Include notes text field for customer remarks",
+      "Step 6: Include status enum (pending_quote, quoted, in_progress, completed)",
+      "Step 7: Include finalQuotePrice decimal",
+      "Step 8: Include createdAt timestamp"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 1: Database schema defines order_photos table with 3D reconstruction support",
+    "steps": [
+      "Step 1: Define order_photos table with tenantId and orderId foreign keys",
+      "Step 2: Include imageUrl for stored photos",
+      "Step 3: Include photoType enum (user_upload, ai_generated)",
+      "Step 4: Include gaussianSplatUrl for 3D model storage",
+      "Step 5: Include createdAt timestamp",
+      "Step 6: Verify all foreign key relationships are correct"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 1: Database schema defines calculation_items table for tenant-specific pricing",
+    "steps": [
+      "Step 1: Define calculation_items table with tenantId foreign key",
+      "Step 2: Include name and unit enum (per_sqft, per_unit, per_hour)",
+      "Step 3: Include pricePerUnit with decimal precision",
+      "Step 4: Include sortOrder integer for display ordering",
+      "Step 5: Include createdAt timestamp"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 1: Database schema defines table relations correctly",
+    "steps": [
+      "Step 1: Define relations between tenants and users (one-to-many)",
+      "Step 2: Define relations between tenants and admins (one-to-many)",
+      "Step 3: Define relations between tenants and inventory_stones (one-to-many)",
+      "Step 4: Define relations between tenants and client_orders (one-to-many)",
+      "Step 5: Define relations between users and client_orders (one-to-many)",
+      "Step 6: Define relations between client_orders and order_photos (one-to-many)",
+      "Step 7: Verify drizzle-orm relations() function is properly configured"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 1: Middleware extracts host header and identifies tenant",
+    "steps": [
+      "Step 1: Create middleware.ts in project root",
+      "Step 2: Extract Host header from incoming request",
+      "Step 3: Query tenants table to find matching domain",
+      "Step 4: Handle case when tenant not found (redirect to 404 or platform home)",
+      "Step 5: Handle case when tenant isActive is false (redirect to service suspended page)",
+      "Step 6: Inject tenantId into request headers (x-tenant-id) for downstream use",
+      "Step 7: Verify middleware runs on all routes except /platform-admin and static assets"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 1: Middleware allows platform admin routes without tenant",
+    "steps": [
+      "Step 1: Configure middleware matcher to exclude /platform-admin/* routes",
+      "Step 2: Verify /platform-admin/login is accessible without tenant",
+      "Step 3: Verify /platform-admin/tenants is accessible without tenant",
+      "Step 4: Verify static assets (_next/static, images, favicon) bypass tenant check"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 1: Database connection initializes correctly in /lib/db.ts",
+    "steps": [
+      "Step 1: Create /lib/db.ts file",
+      "Step 2: Import drizzle-orm and @neondatabase/serverless",
+      "Step 3: Create Neon connection using DATABASE_URL environment variable",
+      "Step 4: Export drizzle client instance with schema",
+      "Step 5: Verify connection works by querying tenants table"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 1: R2 client initializes correctly in /lib/r2.ts with tenant isolation",
+    "steps": [
+      "Step 1: Create /lib/r2.ts file",
+      "Step 2: Initialize S3 client with R2 credentials from environment",
+      "Step 3: Create uploadFile function that accepts tenantId parameter",
+      "Step 4: Verify all uploads use /{tenantId}/... path prefix",
+      "Step 5: Create getPublicUrl helper function",
+      "Step 6: Verify R2_PUBLIC_URL is used for generating public URLs"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 1: Environment variables template (.env.local.example) is complete",
+    "steps": [
+      "Step 1: Create .env.local.example file with all required variables",
+      "Step 2: Include DATABASE_URL placeholder",
+      "Step 3: Include R2 credentials (ACCOUNT_ID, ACCESS_KEY_ID, SECRET_ACCESS_KEY, BUCKET_NAME, PUBLIC_URL)",
+      "Step 4: Include RESEND_API_KEY placeholder",
+      "Step 5: Include OPENAI_API_KEY placeholder",
+      "Step 6: Include WORLD_LABS_API_KEY placeholder",
+      "Step 7: Include AUTH_SECRET placeholder",
+      "Step 8: Include NEXT_PUBLIC_APP_URL placeholder"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 2: Super admin login page renders at /platform-admin/login",
+    "steps": [
+      "Step 1: Create /app/platform-admin/login/page.tsx",
+      "Step 2: Render email input field",
+      "Step 3: Render password input field",
+      "Step 4: Render submit button",
+      "Step 5: Verify form posts to /api/platform-admin/auth/login"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 2: Super admin login API validates credentials correctly",
+    "steps": [
+      "Step 1: Create /app/api/platform-admin/auth/login/route.ts",
+      "Step 2: Query admins table with provided email",
+      "Step 3: Verify admin role is 'super_admin'",
+      "Step 4: Compare password hash using bcrypt",
+      "Step 5: Create session with super_admin privileges on success",
+      "Step 6: Return appropriate error for invalid credentials",
+      "Step 7: Return appropriate error for tenant_admin attempting platform admin access"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 2: Super admin dashboard shows tenant list at /platform-admin/tenants",
+    "steps": [
+      "Step 1: Create /app/platform-admin/tenants/page.tsx (protected route)",
+      "Step 2: Fetch all tenants from database",
+      "Step 3: Display tenant name, domain, isActive status, created date",
+      "Step 4: Provide link to create new tenant",
+      "Step 5: Provide link to edit each tenant",
+      "Step 6: Verify only super_admin can access this page"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 2: Super admin can create new tenant",
+    "steps": [
+      "Step 1: Create /app/platform-admin/tenants/new/page.tsx",
+      "Step 2: Provide form with name and domain fields",
+      "Step 3: Submit creates record in tenants table",
+      "Step 4: Create default tenant_admin in admins table for new tenant",
+      "Step 5: Create default calculation_items for new tenant",
+      "Step 6: Display generated admin credentials to super admin",
+      "Step 7: Redirect to tenant list after successful creation"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 2: Super admin can edit tenant settings at /platform-admin/tenants/[id]",
+    "steps": [
+      "Step 1: Create /app/platform-admin/tenants/[id]/page.tsx",
+      "Step 2: Display and allow editing of service toggle (isActive)",
+      "Step 3: Display and allow editing of theme settings (primary color, logo URL, banner URL)",
+      "Step 4: Display and allow editing of feature flags (chatbot, calculator, 3D)",
+      "Step 5: Display and allow editing of contact information",
+      "Step 6: Display and allow editing of AI budget",
+      "Step 7: Save changes to database on submit"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 2: Super admin can toggle tenant service status",
+    "steps": [
+      "Step 1: Locate service toggle button on tenant edit page",
+      "Step 2: Click toggle to change isActive to false",
+      "Step 3: Verify tenant's website shows 'service suspended' page",
+      "Step 4: Click toggle to change isActive to true",
+      "Step 5: Verify tenant's website is accessible again"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 2: Tenant admin login page renders at /admin/login",
+    "steps": [
+      "Step 1: Create /app/(admin)/admin/login/page.tsx",
+      "Step 2: Render email input field",
+      "Step 3: Render password input field",
+      "Step 4: Render submit button",
+      "Step 5: Verify middleware has identified tenant from domain"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 2: Tenant admin login API validates credentials with tenant isolation",
+    "steps": [
+      "Step 1: Create /app/api/admin/auth/login/route.ts",
+      "Step 2: Get tenantId from middleware-injected header",
+      "Step 3: Query admins table with email AND tenantId",
+      "Step 4: Verify admin role is 'tenant_admin'",
+      "Step 5: Compare password hash using bcrypt",
+      "Step 6: Create session with tenant_admin privileges and tenantId",
+      "Step 7: Return error if admin belongs to different tenant"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 2: Tenant admin dashboard displays business metrics at /admin/dashboard",
+    "steps": [
+      "Step 1: Create /app/(admin)/admin/dashboard/page.tsx",
+      "Step 2: Query client_orders where tenantId matches session tenantId",
+      "Step 3: Display count of pending_quote orders",
+      "Step 4: Display count of quoted orders",
+      "Step 5: Display count of in_progress orders",
+      "Step 6: Display count of completed orders",
+      "Step 7: Display count of new customers this month",
+      "Step 8: Verify all queries include WHERE tenantId = ?"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 2: Tenant admin can view inventory list at /admin/inventory",
+    "steps": [
+      "Step 1: Create /app/(admin)/admin/inventory/page.tsx",
+      "Step 2: Query inventory_stones where tenantId = session tenantId AND isActive = true",
+      "Step 3: Display stone image, brand, series, stone type, price",
+      "Step 4: Provide link to add new stone",
+      "Step 5: Provide edit link for each stone",
+      "Step 6: Provide soft delete button for each stone"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 2: Tenant admin can add new stone to inventory",
+    "steps": [
+      "Step 1: Create /app/(admin)/admin/inventory/new/page.tsx",
+      "Step 2: Provide form with brand, series, stone type dropdown",
+      "Step 3: Provide price per slab input",
+      "Step 4: Provide image upload with preview (upload to R2 with tenantId prefix)",
+      "Step 5: Provide multi-language name input (Chinese, English, French tabs)",
+      "Step 6: Provide multi-language description input (Chinese, English, French tabs)",
+      "Step 7: Provide tags input",
+      "Step 8: Save to inventory_stones with tenantId from session"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 2: Tenant admin can edit existing stone in inventory",
+    "steps": [
+      "Step 1: Create /app/(admin)/admin/inventory/[id]/edit/page.tsx",
+      "Step 2: Load existing stone data where id = [id] AND tenantId = session tenantId",
+      "Step 3: Pre-populate form with existing values",
+      "Step 4: Allow editing all fields except stone ID",
+      "Step 5: Update record in database on submit",
+      "Step 6: Verify tenant cannot edit stones from other tenants"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 2: Tenant admin can soft delete stone from inventory",
+    "steps": [
+      "Step 1: Add delete button to inventory list item",
+      "Step 2: On click, confirm deletion with dialog",
+      "Step 3: Update inventory_stones set isActive = false where id = ? AND tenantId = ?",
+      "Step 4: Verify stone no longer appears in active inventory list",
+      "Step 5: Verify stone still exists in database with isActive = false"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 2: Tenant admin can view order list at /admin/orders",
+    "steps": [
+      "Step 1: Create /app/(admin)/admin/orders/page.tsx",
+      "Step 2: Query client_orders where tenantId = session tenantId",
+      "Step 3: Display orders grouped by status (pending, quoted, in_progress, completed)",
+      "Step 4: Display customer name, stone selection, submission date, status",
+      "Step 5: Provide link to view order details"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 2: Tenant admin can view and update order details at /admin/orders/[id]",
+    "steps": [
+      "Step 1: Create /app/(admin)/admin/orders/[id]/page.tsx",
+      "Step 2: Load order where id = [id] AND tenantId = session tenantId",
+      "Step 3: Display customer information (name, email, phone)",
+      "Step 4: Display selected stone or custom selection text",
+      "Step 5: Display customer uploaded photos",
+      "Step 6: Display AI generated renderings if available",
+      "Step 7: Display customer notes",
+      "Step 8: Provide input for finalQuotePrice",
+      "Step 9: Provide dropdown for status update",
+      "Step 10: Save changes on submit"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 2: Tenant admin can view customer list at /admin/customers",
+    "steps": [
+      "Step 1: Create /app/(admin)/admin/customers/page.tsx",
+      "Step 2: Query users where tenantId = session tenantId",
+      "Step 3: Display customer name, email, phone, registration date",
+      "Step 4: Display remaining AI credits",
+      "Step 5: Provide link to view customer details"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 2: Tenant admin can view customer details and add credits",
+    "steps": [
+      "Step 1: Create /app/(admin)/admin/customers/[id]/page.tsx",
+      "Step 2: Load user where id = [id] AND tenantId = session tenantId",
+      "Step 3: Display customer full profile",
+      "Step 4: Display order history for this customer",
+      "Step 5: Provide input to add AI credits",
+      "Step 6: Update users.aiCredits on submit"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 2: Tenant admin can configure calculation items at /admin/calculator-settings",
+    "steps": [
+      "Step 1: Create /app/(admin)/admin/calculator-settings/page.tsx",
+      "Step 2: Query calculation_items where tenantId = session tenantId",
+      "Step 3: Display list of existing items with name, unit, price",
+      "Step 4: Provide add new item button",
+      "Step 5: Provide edit and delete for each item",
+      "Step 6: Verify default items exist (Straight Cut, 45-degree Cut, Waterfall, etc.)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 2: Tenant admin can add new calculation item",
+    "steps": [
+      "Step 1: Click add new item button on calculator settings page",
+      "Step 2: Enter item name",
+      "Step 3: Select unit from dropdown (per_sqft, per_unit, per_hour)",
+      "Step 4: Enter price per unit",
+      "Step 5: Set sort order",
+      "Step 6: Save to calculation_items with tenantId from session"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 2: Tenant admin can edit calculation item",
+    "steps": [
+      "Step 1: Click edit button on calculation item",
+      "Step 2: Modify name, unit, price, or sort order",
+      "Step 3: Save changes to database",
+      "Step 4: Verify changes reflect in calculator",
+      "Step 5: Verify tenant cannot edit items from other tenants"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 2: Tenant admin can delete calculation item",
+    "steps": [
+      "Step 1: Click delete button on calculation item",
+      "Step 2: Confirm deletion",
+      "Step 3: Remove item from database where id = ? AND tenantId = ?",
+      "Step 4: Verify item no longer appears in list",
+      "Step 5: Verify tenant cannot delete items from other tenants"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 3: Client layout applies tenant theme dynamically",
+    "steps": [
+      "Step 1: Create /app/(client)/layout.tsx",
+      "Step 2: Fetch tenant config from database using tenantId from middleware",
+      "Step 3: Apply themePrimaryColor as CSS variable",
+      "Step 4: Display themeLogoUrl in header",
+      "Step 5: Display tenant contact info in footer",
+      "Step 6: Verify theme changes based on domain accessed"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 3: Client layout supports i18n with next-intl",
+    "steps": [
+      "Step 1: Install and configure next-intl",
+      "Step 2: Create message files for zh, en, fr languages",
+      "Step 3: Configure middleware to detect language from URL path",
+      "Step 4: Display language switcher in header",
+      "Step 5: Verify language switch updates URL and content"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 3: Client registration page at /register",
+    "steps": [
+      "Step 1: Create /app/(client)/register/page.tsx",
+      "Step 2: Render username input field",
+      "Step 3: Render email input field",
+      "Step 4: Render phone input field",
+      "Step 5: Render submit button",
+      "Step 6: Display success message after registration",
+      "Step 7: Inform user to check email for PIN"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 3: Client registration API creates user with tenant isolation",
+    "steps": [
+      "Step 1: Create /app/api/auth/register/route.ts",
+      "Step 2: Get tenantId from middleware-injected header",
+      "Step 3: Validate form data (email format, required fields)",
+      "Step 4: Check if email already exists for this tenant",
+      "Step 5: Generate 6-digit random PIN",
+      "Step 6: Hash PIN with bcrypt",
+      "Step 7: Create user record with tenantId and hashed PIN",
+      "Step 8: Send PIN email via Resend with tenant branding"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 3: Client login page at /login",
+    "steps": [
+      "Step 1: Create /app/(client)/login/page.tsx",
+      "Step 2: Render email input field",
+      "Step 3: Render PIN input field (6 digits)",
+      "Step 4: Render submit button",
+      "Step 5: Display error message for invalid credentials",
+      "Step 6: Redirect to /account on successful login"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 3: Client login API validates PIN with tenant isolation",
+    "steps": [
+      "Step 1: Create /app/api/auth/login/route.ts",
+      "Step 2: Get tenantId from middleware-injected header",
+      "Step 3: Query users table with email AND tenantId",
+      "Step 4: Compare PIN with bcrypt.compare()",
+      "Step 5: Create session with userId and tenantId on success",
+      "Step 6: Return error for invalid credentials",
+      "Step 7: Return error if user belongs to different tenant"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 3: Stone browse page displays tenant's inventory at /browse",
+    "steps": [
+      "Step 1: Create /app/(client)/browse/page.tsx",
+      "Step 2: Query inventory_stones where tenantId = ? AND isActive = true",
+      "Step 3: Display stones in grid layout",
+      "Step 4: Display stone image, name (localized), stone type",
+      "Step 5: Display image disclaimer text",
+      "Step 6: Provide stone type filter dropdown",
+      "Step 7: Provide search input for brand/series"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 3: Stone browse page filters work correctly",
+    "steps": [
+      "Step 1: Select stone type from filter dropdown",
+      "Step 2: Verify only stones of selected type are displayed",
+      "Step 3: Clear filter shows all stones again",
+      "Step 4: Enter search term in search box",
+      "Step 5: Verify results match brand or series",
+      "Step 6: Combine filter and search",
+      "Step 7: Verify both conditions are applied"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 3: Stone detail page displays full stone information at /browse/[id]",
+    "steps": [
+      "Step 1: Create /app/(client)/browse/[id]/page.tsx",
+      "Step 2: Query inventory_stones where id = ? AND tenantId = ? AND isActive = true",
+      "Step 3: Display large stone image",
+      "Step 4: Display stone name in user's language",
+      "Step 5: Display description in user's language",
+      "Step 6: Display stone type, brand, series",
+      "Step 7: Display image disclaimer",
+      "Step 8: Provide 'Request Quote' button"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 3: Client account page at /account shows user profile and orders",
+    "steps": [
+      "Step 1: Create /app/(client)/account/page.tsx (protected route)",
+      "Step 2: Display user information (username, email, phone)",
+      "Step 3: Display remaining AI credits",
+      "Step 4: Query client_orders where userId = ? AND tenantId = ?",
+      "Step 5: Display order history with stone name, date, status, quote",
+      "Step 6: Display status-specific messages (pending, quoted, etc.)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 3: Client can submit new quote request from account page",
+    "steps": [
+      "Step 1: Display new quote form on account page",
+      "Step 2: Show stone dropdown populated with tenant's active stones",
+      "Step 3: Show 'Not sure / Let AI recommend' option",
+      "Step 4: When AI option selected, disable stone dropdown and show text input",
+      "Step 5: Show desired date dropdown",
+      "Step 6: Show contractor checkbox",
+      "Step 7: Show budget input",
+      "Step 8: Show notes textarea",
+      "Step 9: Submit creates order with tenantId and userId"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 3: Quote request pre-fill from chatbot link works",
+    "steps": [
+      "Step 1: Navigate to /account/new-quote?stoneId=123",
+      "Step 2: Verify stone dropdown is pre-selected with stone ID 123",
+      "Step 3: Verify other fields are empty",
+      "Step 4: Complete and submit form",
+      "Step 5: Verify order is created with correct stoneId"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 4: Chat page renders at /chat when feature is enabled",
+    "steps": [
+      "Step 1: Create /app/(client)/chat/page.tsx",
+      "Step 2: Check tenant's featureChatbot flag",
+      "Step 3: If disabled, show 'Feature not available' message",
+      "Step 4: If enabled, render chat interface",
+      "Step 5: Display message history area",
+      "Step 6: Display input box and send button",
+      "Step 7: Display file upload button",
+      "Step 8: Display remaining AI credits"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 4: Chat uses Vercel AI SDK useChat hook",
+    "steps": [
+      "Step 1: Install and import @ai-sdk/react",
+      "Step 2: Initialize useChat hook with /api/chat endpoint",
+      "Step 3: Display messages from hook's messages array",
+      "Step 4: Send input through hook's handleSubmit",
+      "Step 5: Handle loading states",
+      "Step 6: Handle error states"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 4: Chat API endpoint at /api/chat validates permissions",
+    "steps": [
+      "Step 1: Create /app/api/chat/route.ts",
+      "Step 2: Get userId and tenantId from session",
+      "Step 3: Verify tenant isActive = true",
+      "Step 4: Verify tenant featureChatbot = true",
+      "Step 5: Check user aiCredits > threshold",
+      "Step 6: Check tenant aiMonthlyBudget > threshold",
+      "Step 7: Return error if any check fails"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 4: Chat API builds dynamic system prompt based on tenant",
+    "steps": [
+      "Step 1: Fetch tenant name and contact info from database",
+      "Step 2: Check if tenant has custom aiSystemPrompt",
+      "Step 3: If custom prompt exists, use it as base",
+      "Step 4: If no custom prompt, use default template",
+      "Step 5: Inject tenant-specific variables (name, phone, email)",
+      "Step 6: Pass final system prompt to LLM"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 4: Chat API implements first-layer guardrail (pre-check)",
+    "steps": [
+      "Step 1: Extract user message content",
+      "Step 2: Perform keyword matching for obvious off-topic requests",
+      "Step 3: Classify intent if possible",
+      "Step 4: If off-topic detected, return pre-defined refusal response",
+      "Step 5: Do not call LLM for blocked requests",
+      "Step 6: If on-topic, proceed to LLM call"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 4: Chat API implements get_stone_inventory tool with tenant isolation",
+    "steps": [
+      "Step 1: Define get_stone_inventory tool with query and tags parameters",
+      "Step 2: When tool is called, query inventory_stones where tenantId = ?",
+      "Step 3: Apply search filter if query provided",
+      "Step 4: Apply tag filter if tags provided",
+      "Step 5: Return only active stones (isActive = true)",
+      "Step 6: Return stone data to LLM for response generation"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 4: Chat API implements analyze_scene_image tool",
+    "steps": [
+      "Step 1: Define analyze_scene_image tool with imageUrl parameter",
+      "Step 2: When tool is called, send image to GPT-4o Vision API",
+      "Step 3: Extract style, color scheme, room type, existing elements",
+      "Step 4: Return structured analysis to LLM",
+      "Step 5: LLM uses analysis to recommend stones"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 4: Chat API implements generate_stone_rendering tool",
+    "steps": [
+      "Step 1: Define generate_stone_rendering tool with stoneImageUrl and sceneDescription",
+      "Step 2: When tool is called, prepare request to Nano Banana Pro API",
+      "Step 3: Pass stone image and scene description",
+      "Step 4: Receive rendered image URL",
+      "Step 5: Upload result to R2 with tenantId prefix",
+      "Step 6: Return rendered image URL to display in chat"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 4: Chat API tracks and deducts costs after completion",
+    "steps": [
+      "Step 1: Use onFinish callback from Vercel AI SDK",
+      "Step 2: Extract token usage and model information",
+      "Step 3: Calculate cost based on model pricing",
+      "Step 4: In database transaction: deduct from users.aiCredits",
+      "Step 5: In same transaction: deduct from tenants.aiMonthlyBudget",
+      "Step 6: Log the transaction for auditing"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 4: Chat allows image upload for scene analysis",
+    "steps": [
+      "Step 1: Add file input to chat interface",
+      "Step 2: Accept image file formats (jpg, png, webp)",
+      "Step 3: Upload image to R2 with tenantId prefix",
+      "Step 4: Display uploaded image preview in chat",
+      "Step 5: Include image URL in message to API",
+      "Step 6: Trigger analyze_scene_image tool automatically"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 4: Chat displays AI-generated renderings inline",
+    "steps": [
+      "Step 1: Detect when generate_stone_rendering returns result",
+      "Step 2: Display rendered image in chat message",
+      "Step 3: Provide download link for rendered image",
+      "Step 4: Store image URL in order_photos if order exists"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 5: Quote submission API at /api/orders creates order correctly",
+    "steps": [
+      "Step 1: Create /app/api/orders/route.ts (POST)",
+      "Step 2: Get userId and tenantId from session",
+      "Step 3: Validate required fields (stoneId or stoneSelectionText, desiredDate)",
+      "Step 4: Create record in client_orders with tenantId and userId",
+      "Step 5: Set initial status to 'pending_quote'",
+      "Step 6: Return order ID on success",
+      "Step 7: Return 400 error for validation failures"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 5: New order triggers email notification to tenant admin",
+    "steps": [
+      "Step 1: After successful order creation, get tenant contactEmail",
+      "Step 2: Prepare email with tenant branding (name, logo)",
+      "Step 3: Include customer info in email body",
+      "Step 4: Include stone selection and customer notes",
+      "Step 5: Include link to order detail page in admin panel",
+      "Step 6: Send via Resend API",
+      "Step 7: Handle email send failures gracefully"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 5: Tenant admin updating quote triggers customer notification",
+    "steps": [
+      "Step 1: When admin sets finalQuotePrice and status to 'quoted'",
+      "Step 2: Get customer email from users table",
+      "Step 3: Prepare email with tenant branding",
+      "Step 4: Include quote amount and stone information",
+      "Step 5: Set reply-to as tenant contactEmail",
+      "Step 6: Include link to customer account page",
+      "Step 7: Send via Resend API"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 5: Order status lifecycle transitions correctly",
+    "steps": [
+      "Step 1: Customer submits -> status becomes 'pending_quote'",
+      "Step 2: Admin sets quote -> status becomes 'quoted'",
+      "Step 3: Admin starts work -> status becomes 'in_progress'",
+      "Step 4: Admin completes -> status becomes 'completed'",
+      "Step 5: Verify each transition updates timestamp if applicable",
+      "Step 6: Verify customer can see status changes in account"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 5: Customer account page shows real-time order status",
+    "steps": [
+      "Step 1: Fetch orders from API with SWR or React Query",
+      "Step 2: Set up polling interval (e.g., every 30 seconds)",
+      "Step 3: Display current status with visual indicator",
+      "Step 4: Display final quote when status is 'quoted'",
+      "Step 5: Show appropriate message for each status",
+      "Step 6: Update UI when status changes without page refresh"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 6: 3D reconstruction feature respects feature flag",
+    "steps": [
+      "Step 1: Check tenant feature3dReconstruction flag",
+      "Step 2: If false, hide all 3D reconstruction UI elements",
+      "Step 3: If true, show 'Generate 3D Scene' button on order photos",
+      "Step 4: Verify API returns 403 if feature disabled for tenant"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 6: 3D reconstruction API endpoint at /api/reconstruction",
+    "steps": [
+      "Step 1: Create /app/api/reconstruction/route.ts (POST)",
+      "Step 2: Get userId and tenantId from session",
+      "Step 3: Verify tenant feature3dReconstruction = true",
+      "Step 4: Verify tenant aiMonthlyBudget sufficient ($1.26+)",
+      "Step 5: Get source image URL from order_photos",
+      "Step 6: Call World Labs API to start generation",
+      "Step 7: Store operationId for polling"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 6: 3D reconstruction initiates World Labs API call",
+    "steps": [
+      "Step 1: POST to World Labs worlds:generate endpoint",
+      "Step 2: Include image URL as UriReference",
+      "Step 3: Set quality to MARBLE_0_1_PLUS",
+      "Step 4: Receive operationId in response",
+      "Step 5: Store operationId in database for tracking"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 6: Async polling task checks World Labs operation status",
+    "steps": [
+      "Step 1: Set up background task (Vercel Cron or queue)",
+      "Step 2: Poll operations endpoint every 30 seconds",
+      "Step 3: Check status field in response",
+      "Step 4: Continue polling while status is 'running'",
+      "Step 5: On 'succeeded', extract splat_url and world_marble_url",
+      "Step 6: On 'failed', log error and notify user"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 6: Completed 3D model is backed up to R2",
+    "steps": [
+      "Step 1: Download SPZ file from World Labs splat_url",
+      "Step 2: Upload to R2 at path /{tenantId}/splats/{orderId}.spz",
+      "Step 3: Update order_photos.gaussianSplatUrl with R2 URL",
+      "Step 4: Also store world_marble_url as backup reference",
+      "Step 5: Deduct cost from tenant aiMonthlyBudget"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 6: 3D viewer page at /account/orders/[id]/3d-view renders SPZ",
+    "steps": [
+      "Step 1: Create /app/(client)/account/orders/[id]/3d-view/page.tsx",
+      "Step 2: Fetch gaussianSplatUrl from order_photos",
+      "Step 3: Initialize THREE.js scene with WebGLRenderer",
+      "Step 4: Load SparkJS SplatMesh with SPZ URL",
+      "Step 5: Add OrbitControls for interaction",
+      "Step 6: Display loading state while model loads",
+      "Step 7: Handle load errors gracefully"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 6: 3D viewer component with SparkJS integrates correctly",
+    "steps": [
+      "Step 1: Install @sparkjsdev/spark and three packages",
+      "Step 2: Create SplatViewer React component",
+      "Step 3: Accept URL as prop",
+      "Step 4: Use useEffect to initialize scene",
+      "Step 5: Set up animation loop",
+      "Step 6: Handle window resize",
+      "Step 7: Clean up resources on unmount"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 6: 3D scene button state changes correctly",
+    "steps": [
+      "Step 1: If no 3D exists and feature enabled -> show 'Generate 3D Scene'",
+      "Step 2: If generation in progress -> show loading spinner with 'Processing...'",
+      "Step 3: If 3D exists -> show 'View 3D Scene' button",
+      "Step 4: If feature disabled -> hide all 3D buttons"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Style: Platform admin login page has clean, professional appearance",
+    "steps": [
+      "Step 1: Navigate to /platform-admin/login",
+      "Step 2: Take screenshot",
+      "Step 3: Verify centered login form with adequate padding",
+      "Step 4: Verify consistent typography and spacing",
+      "Step 5: Verify responsive design on mobile viewport"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Style: Platform admin tenant list displays data clearly in table",
+    "steps": [
+      "Step 1: Navigate to /platform-admin/tenants",
+      "Step 2: Take screenshot",
+      "Step 3: Verify table has proper headers and alignment",
+      "Step 4: Verify status badges are color-coded (active/inactive)",
+      "Step 5: Verify action buttons are appropriately sized and spaced"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Style: Tenant admin dashboard presents metrics in card layout",
+    "steps": [
+      "Step 1: Login as tenant admin",
+      "Step 2: Navigate to /admin/dashboard",
+      "Step 3: Take screenshot",
+      "Step 4: Verify metric cards are evenly spaced",
+      "Step 5: Verify numbers are prominent and readable",
+      "Step 6: Verify responsive grid on different screen sizes"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Style: Tenant admin inventory list uses responsive grid",
+    "steps": [
+      "Step 1: Navigate to /admin/inventory",
+      "Step 2: Take screenshot",
+      "Step 3: Verify stone cards display image prominently",
+      "Step 4: Verify text is readable at all screen sizes",
+      "Step 5: Verify action buttons are accessible",
+      "Step 6: Verify grid adapts from 4 columns to 1 on mobile"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Style: Client browse page has attractive stone grid",
+    "steps": [
+      "Step 1: Navigate to /browse",
+      "Step 2: Take screenshot",
+      "Step 3: Verify stone images are consistent size",
+      "Step 4: Verify hover effects on stone cards",
+      "Step 5: Verify filter sidebar is intuitive",
+      "Step 6: Verify disclaimer text is visible but not intrusive"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Style: Client browse page applies tenant theme colors",
+    "steps": [
+      "Step 1: Access site with tenant A domain",
+      "Step 2: Take screenshot of browse page",
+      "Step 3: Verify primary color matches tenant A configuration",
+      "Step 4: Access site with tenant B domain",
+      "Step 5: Take screenshot of browse page",
+      "Step 6: Verify primary color matches tenant B configuration"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Style: Chat interface has modern messaging appearance",
+    "steps": [
+      "Step 1: Navigate to /chat",
+      "Step 2: Take screenshot",
+      "Step 3: Verify message bubbles are clearly distinguished (user vs AI)",
+      "Step 4: Verify input area is at bottom and always visible",
+      "Step 5: Verify AI credits display is prominent but not intrusive",
+      "Step 6: Verify send button is clearly visible"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Style: Client account page displays orders cleanly",
+    "steps": [
+      "Step 1: Login as customer",
+      "Step 2: Navigate to /account",
+      "Step 3: Take screenshot",
+      "Step 4: Verify order list is easy to scan",
+      "Step 5: Verify status badges are color-coded",
+      "Step 6: Verify quote prices are prominent",
+      "Step 7: Verify new quote form is accessible"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Style: 3D viewer page has full-screen immersive experience",
+    "steps": [
+      "Step 1: Navigate to 3D viewer page for completed reconstruction",
+      "Step 2: Take screenshot",
+      "Step 3: Verify 3D canvas fills viewport",
+      "Step 4: Verify loading indicator is centered",
+      "Step 5: Verify back navigation is accessible but not intrusive",
+      "Step 6: Verify controls hint is shown for first-time users"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Style: Header displays tenant logo and navigation correctly",
+    "steps": [
+      "Step 1: Access client site",
+      "Step 2: Take screenshot of header",
+      "Step 3: Verify tenant logo is displayed (or fallback text)",
+      "Step 4: Verify navigation links are properly aligned",
+      "Step 5: Verify language switcher is visible",
+      "Step 6: Verify header is fixed on scroll"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Style: Footer displays tenant contact information",
+    "steps": [
+      "Step 1: Scroll to bottom of client site",
+      "Step 2: Take screenshot of footer",
+      "Step 3: Verify phone number is displayed",
+      "Step 4: Verify email is displayed",
+      "Step 5: Verify address is displayed",
+      "Step 6: Verify consistent styling with tenant theme"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Style: Form inputs have consistent styling across application",
+    "steps": [
+      "Step 1: Navigate to registration form",
+      "Step 2: Take screenshot",
+      "Step 3: Verify input fields have consistent height and padding",
+      "Step 4: Verify labels are properly associated",
+      "Step 5: Verify focus states are visible",
+      "Step 6: Verify error states are clearly indicated"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Style: Mobile responsive design works across all pages",
+    "steps": [
+      "Step 1: Set viewport to 375px width",
+      "Step 2: Navigate through all main pages",
+      "Step 3: Take screenshots of each page",
+      "Step 4: Verify no horizontal scrolling",
+      "Step 5: Verify touch targets are at least 44px",
+      "Step 6: Verify text is readable without zooming"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Style: Dark mode support (if implemented)",
+    "steps": [
+      "Step 1: Toggle dark mode if available",
+      "Step 2: Take screenshots of main pages",
+      "Step 3: Verify all text is readable",
+      "Step 4: Verify colors have adequate contrast",
+      "Step 5: Verify images and icons are visible",
+      "Step 6: Verify no flash of incorrect theme on load"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Module 1: Project structure follows specification exactly",
+    "steps": [
+      "Step 1: Verify /app/(admin) directory exists",
+      "Step 2: Verify /app/(client) directory exists",
+      "Step 3: Verify /app/platform-admin directory exists",
+      "Step 4: Verify /app/api directory exists",
+      "Step 5: Verify /components directory exists",
+      "Step 6: Verify /lib directory exists with db.ts, r2.ts, utils.ts",
+      "Step 7: Verify /drizzle directory exists with schema.ts"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Integration: Complete customer journey from browse to quote",
+    "steps": [
+      "Step 1: Customer visits tenant website",
+      "Step 2: Customer browses stone inventory",
+      "Step 3: Customer selects a stone and views details",
+      "Step 4: Customer registers for an account",
+      "Step 5: Customer receives PIN email and logs in",
+      "Step 6: Customer submits quote request",
+      "Step 7: Tenant admin receives notification email",
+      "Step 8: Tenant admin reviews and sets quote price",
+      "Step 9: Customer receives quote notification email",
+      "Step 10: Customer views quote in account page"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Integration: Complete AI-assisted customer journey",
+    "steps": [
+      "Step 1: Customer visits tenant website",
+      "Step 2: Customer opens chatbot",
+      "Step 3: Customer uploads kitchen photo",
+      "Step 4: AI analyzes scene and recommends stones",
+      "Step 5: Customer asks questions about recommendations",
+      "Step 6: AI generates rendering with selected stone",
+      "Step 7: Customer clicks link to submit quote",
+      "Step 8: Quote form is pre-filled with selected stone",
+      "Step 9: Customer submits quote request"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Integration: Complete 3D reconstruction journey",
+    "steps": [
+      "Step 1: Customer submits quote with scene photo",
+      "Step 2: Order is created with photo in order_photos",
+      "Step 3: Customer clicks 'Generate 3D Scene' button",
+      "Step 4: System calls World Labs API",
+      "Step 5: Background task polls for completion",
+      "Step 6: SPZ file is backed up to R2",
+      "Step 7: Customer receives notification that 3D is ready",
+      "Step 8: Customer opens 3D viewer",
+      "Step 9: Customer can interact with 3D scene (rotate, zoom)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Security: Tenant isolation enforced across all API endpoints",
+    "steps": [
+      "Step 1: Create tenant A admin account",
+      "Step 2: Create tenant B inventory items",
+      "Step 3: Attempt to access tenant B items with tenant A credentials",
+      "Step 4: Verify API returns 403 or empty results",
+      "Step 5: Attempt to modify tenant B data with tenant A credentials",
+      "Step 6: Verify modification is rejected",
+      "Step 7: Verify R2 files cannot be accessed across tenants"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Security: Session management prevents unauthorized access",
+    "steps": [
+      "Step 1: Login as tenant admin",
+      "Step 2: Verify session contains correct tenantId",
+      "Step 3: Access protected admin route",
+      "Step 4: Verify access granted",
+      "Step 5: Clear session/cookies",
+      "Step 6: Attempt to access protected route",
+      "Step 7: Verify redirect to login page"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Performance: Page load times are acceptable",
+    "steps": [
+      "Step 1: Measure browse page load time",
+      "Step 2: Verify initial load under 3 seconds",
+      "Step 3: Measure chat page load time",
+      "Step 4: Verify initial load under 2 seconds",
+      "Step 5: Measure admin dashboard load time",
+      "Step 6: Verify initial load under 2 seconds",
+      "Step 7: Verify images are lazy loaded"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Accessibility: Keyboard navigation works throughout application",
+    "steps": [
+      "Step 1: Navigate to browse page",
+      "Step 2: Use Tab key to navigate through all interactive elements",
+      "Step 3: Verify focus is visible on all elements",
+      "Step 4: Verify Enter key activates buttons and links",
+      "Step 5: Verify Escape closes modals and dropdowns",
+      "Step 6: Verify skip-to-content link exists"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Accessibility: Screen reader compatibility",
+    "steps": [
+      "Step 1: Enable screen reader",
+      "Step 2: Navigate browse page",
+      "Step 3: Verify stone images have alt text",
+      "Step 4: Verify form inputs have associated labels",
+      "Step 5: Verify status messages are announced",
+      "Step 6: Verify navigation landmarks are present"
+    ],
+    "passes": false
+  }
+]
