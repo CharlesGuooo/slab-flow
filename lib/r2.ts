@@ -24,17 +24,20 @@ const PUBLIC_URL = process.env.R2_PUBLIC_URL!;
  */
 export async function uploadFile(
   tenantId: number,
-  file: Buffer | ArrayBuffer,
+  file: Buffer | ArrayBuffer | Uint8Array,
   path: string,
   contentType: string = 'application/octet-stream'
 ): Promise<string> {
   // Construct the full path with tenantId prefix for isolation
   const fullPath = `${tenantId}/${path}`;
 
+  // Convert to Buffer if needed
+  const fileBuffer = file instanceof ArrayBuffer ? Buffer.from(file) : file;
+
   const command = new PutObjectCommand({
     Bucket: BUCKET_NAME,
     Key: fullPath,
-    Body: Buffer.from(file),
+    Body: fileBuffer,
     ContentType: contentType,
   });
 

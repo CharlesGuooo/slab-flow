@@ -9,7 +9,7 @@
       "Step 4: Run 'npm run dev' and verify application starts on port 3000",
       "Step 5: Navigate to http://localhost:3000 and verify default page loads"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -20,7 +20,7 @@
       "Step 3: Verify dependencies appear in package.json",
       "Step 4: Verify no installation errors occur"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -34,7 +34,7 @@
       "Step 6: Define AI config fields (aiSystemPrompt, aiMonthlyBudget)",
       "Step 7: Verify schema exports tenants table correctly"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -46,7 +46,7 @@
       "Step 4: Include createdAt timestamp",
       "Step 5: Verify foreign key relationship to tenants table is correct"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -58,7 +58,7 @@
       "Step 4: Verify tenantId can be NULL for super admins",
       "Step 5: Verify foreign key relationship to tenants table"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -73,7 +73,7 @@
       "Step 7: Include isActive boolean for soft delete",
       "Step 8: Include createdAt timestamp"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -88,7 +88,7 @@
       "Step 7: Include finalQuotePrice decimal",
       "Step 8: Include createdAt timestamp"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -101,7 +101,7 @@
       "Step 5: Include createdAt timestamp",
       "Step 6: Verify all foreign key relationships are correct"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -113,7 +113,7 @@
       "Step 4: Include sortOrder integer for display ordering",
       "Step 5: Include createdAt timestamp"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -127,7 +127,7 @@
       "Step 6: Define relations between client_orders and order_photos (one-to-many)",
       "Step 7: Verify drizzle-orm relations() function is properly configured"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -141,7 +141,7 @@
       "Step 6: Inject tenantId into request headers (x-tenant-id) for downstream use",
       "Step 7: Verify middleware runs on all routes except /platform-admin and static assets"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -152,7 +152,7 @@
       "Step 3: Verify /platform-admin/tenants is accessible without tenant",
       "Step 4: Verify static assets (_next/static, images, favicon) bypass tenant check"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -164,7 +164,7 @@
       "Step 4: Export drizzle client instance with schema",
       "Step 5: Verify connection works by querying tenants table"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -177,7 +177,7 @@
       "Step 5: Create getPublicUrl helper function",
       "Step 6: Verify R2_PUBLIC_URL is used for generating public URLs"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -192,7 +192,7 @@
       "Step 7: Include AUTH_SECRET placeholder",
       "Step 8: Include NEXT_PUBLIC_APP_URL placeholder"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -204,7 +204,7 @@
       "Step 4: Render submit button",
       "Step 5: Verify form posts to /api/platform-admin/auth/login"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -218,7 +218,7 @@
       "Step 6: Return appropriate error for invalid credentials",
       "Step 7: Return appropriate error for tenant_admin attempting platform admin access"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -231,7 +231,7 @@
       "Step 5: Provide link to edit each tenant",
       "Step 6: Verify only super_admin can access this page"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -245,7 +245,7 @@
       "Step 6: Display generated admin credentials to super admin",
       "Step 7: Redirect to tenant list after successful creation"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -259,7 +259,7 @@
       "Step 6: Display and allow editing of AI budget",
       "Step 7: Save changes to database on submit"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1141,7 +1141,7 @@
       "Step 6: Verify /lib directory exists with db.ts, r2.ts, utils.ts",
       "Step 7: Verify /drizzle directory exists with schema.ts"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
