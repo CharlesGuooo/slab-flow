@@ -1,0 +1,128 @@
+{
+  "common": {
+    "siteName": "SlabFlow",
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "continue": "Continue"
+  },
+  "nav": {
+    "browse": "Browse Stones",
+    "chat": "AI Assistant",
+    "calculator": "Calculator",
+    "account": "My Account",
+    "login": "Login",
+    "register": "Register",
+    "logout": "Sign Out"
+  },
+  "home": {
+    "heroTitle": "Premium Stone Surfaces",
+    "heroSubtitle": "Find the perfect stone for your project",
+    "browseStones": "Browse Stones",
+    "chatWithAI": "Chat with AI"
+  },
+  "browse": {
+    "title": "Browse Our Stone Collection",
+    "searchPlaceholder": "Search by brand or series...",
+    "filterByType": "Filter by Type",
+    "allTypes": "All Types",
+    "noResults": "No stones found",
+    "requestQuote": "Request Quote",
+    "chatAboutStone": "Ask AI About This Stone"
+  },
+  "stone": {
+    "brand": "Brand",
+    "series": "Series",
+    "type": "Stone Type",
+    "pricePerSlab": "Price per Slab",
+    "description": "Description",
+    "imageDisclaimer": "Note: Images are for illustration purposes. Actual stone appearance may vary."
+  },
+  "auth": {
+    "registerTitle": "Create an Account",
+    "loginTitle": "Sign In",
+    "username": "Username",
+    "email": "Email",
+    "phone": "Phone (optional)",
+    "pin": "Enter your 6-digit PIN",
+    "registerSuccess": "Registration successful!",
+    "pinSent": "Your PIN has been sent to your email",
+    "loginError": "Invalid email or PIN"
+  },
+  "account": {
+    "title": "My Account",
+    "profile": "Profile",
+    "orders": "My Orders",
+    "aiCredits": "AI Credits",
+    "newQuote": "New Quote Request",
+    "noOrders": "No orders yet"
+  },
+  "quote": {
+    "title": "Request a Quote",
+    "selectStone": "Select a Stone",
+    "useAI": "Not sure? Let AI recommend a stone",
+    "describeStone": "Describe what you're looking for",
+    "timeline": "Desired Timeline",
+    "budget": "Budget (optional)",
+    "contractor": "I am a contractor/designer",
+    "notes": "Additional Notes",
+    "submit": "Submit Quote Request",
+    "success": "Quote Request Submitted!",
+    "orderNumber": "Your request #{orderId} has been received"
+  },
+  "chat": {
+    "title": "AI Stone Assistant",
+    "welcome": "Hello! I'm your AI Stone Assistant",
+    "welcomeMessage": "I can help you find the perfect stone for your project",
+    "placeholder": "Ask me about stone options...",
+    "uploadImage": "Upload a photo for personalized recommendations",
+    "getQuote": "Get a quote for this stone"
+  },
+  "calculator": {
+    "title": "Price Calculator",
+    "selectStone": "Select Stone",
+    "length": "Length (inches)",
+    "width": "Width (inches)",
+    "edgeProfile": "Edge Profile",
+    "standardEdge": "Standard Edge",
+    "fancyEdge": "Fancy Edge",
+    "sinkCutouts": "Number of Sink Cutouts",
+    "backsplash": "Include 4\" backsplash",
+    "calculate": "Calculate Price",
+    "estimate": "Estimate",
+    "totalEstimate": "Total Estimate",
+    "stoneSlabs": "Stone Slabs",
+    "edgeProfileCost": "Edge Profile",
+    "sinkCutoutCost": "Sink Cutouts",
+    "backsplashCost": "Backsplash",
+    "disclaimer": "This is an estimate only. Final pricing depends on actual measurements."
+  },
+  "order": {
+    "status": {
+      "pending_quote": "Pending Quote",
+      "quoted": "Quoted",
+      "in_progress": "In Progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "detail": "Order Details",
+    "stoneSelection": "Stone Selection",
+    "projectDetails": "Project Details",
+    "quoteAmount": "Quote Amount",
+    "photos": "Project Photos",
+    "statusTimeline": "Order Status"
+  },
+  "footer": {
+    "contact": "Contact",
+    "phone": "Phone",
+    "email": "Email",
+    "address": "Address",
+    "quickLinks": "Quick Links",
+    "copyright": "All rights reserved"
+  }
+}

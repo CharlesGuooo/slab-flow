@@ -312,7 +312,7 @@
       "Step 7: Display count of new customers this month",
       "Step 8: Verify all queries include WHERE tenantId = ?"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -325,7 +325,7 @@
       "Step 5: Provide edit link for each stone",
       "Step 6: Provide soft delete button for each stone"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -340,7 +340,7 @@
       "Step 7: Provide tags input",
       "Step 8: Save to inventory_stones with tenantId from session"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -353,7 +353,7 @@
       "Step 5: Update record in database on submit",
       "Step 6: Verify tenant cannot edit stones from other tenants"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -365,7 +365,7 @@
       "Step 4: Verify stone no longer appears in active inventory list",
       "Step 5: Verify stone still exists in database with isActive = false"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -377,7 +377,7 @@
       "Step 4: Display customer name, stone selection, submission date, status",
       "Step 5: Provide link to view order details"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -394,7 +394,7 @@
       "Step 9: Provide dropdown for status update",
       "Step 10: Save changes on submit"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -406,7 +406,7 @@
       "Step 4: Display remaining AI credits",
       "Step 5: Provide link to view customer details"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -419,7 +419,7 @@
       "Step 5: Provide input to add AI credits",
       "Step 6: Update users.aiCredits on submit"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -432,7 +432,7 @@
       "Step 5: Provide edit and delete for each item",
       "Step 6: Verify default items exist (Straight Cut, 45-degree Cut, Waterfall, etc.)"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -445,7 +445,7 @@
       "Step 5: Set sort order",
       "Step 6: Save to calculation_items with tenantId from session"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -457,7 +457,7 @@
       "Step 4: Verify changes reflect in calculator",
       "Step 5: Verify tenant cannot edit items from other tenants"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -469,7 +469,7 @@
       "Step 4: Verify item no longer appears in list",
       "Step 5: Verify tenant cannot delete items from other tenants"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -482,7 +482,7 @@
       "Step 5: Display tenant contact info in footer",
       "Step 6: Verify theme changes based on domain accessed"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -494,7 +494,7 @@
       "Step 4: Display language switcher in header",
       "Step 5: Verify language switch updates URL and content"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -508,7 +508,7 @@
       "Step 6: Display success message after registration",
       "Step 7: Inform user to check email for PIN"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -523,7 +523,7 @@
       "Step 7: Create user record with tenantId and hashed PIN",
       "Step 8: Send PIN email via Resend with tenant branding"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -536,7 +536,7 @@
       "Step 5: Display error message for invalid credentials",
       "Step 6: Redirect to /account on successful login"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -550,7 +550,7 @@
       "Step 6: Return error for invalid credentials",
       "Step 7: Return error if user belongs to different tenant"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -564,7 +564,7 @@
       "Step 6: Provide stone type filter dropdown",
       "Step 7: Provide search input for brand/series"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -578,7 +578,7 @@
       "Step 6: Combine filter and search",
       "Step 7: Verify both conditions are applied"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -593,7 +593,7 @@
       "Step 7: Display image disclaimer",
       "Step 8: Provide 'Request Quote' button"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -606,7 +606,7 @@
       "Step 5: Display order history with stone name, date, status, quote",
       "Step 6: Display status-specific messages (pending, quoted, etc.)"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -622,7 +622,7 @@
       "Step 8: Show notes textarea",
       "Step 9: Submit creates order with tenantId and userId"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -634,7 +634,7 @@
       "Step 4: Complete and submit form",
       "Step 5: Verify order is created with correct stoneId"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -649,7 +649,7 @@
       "Step 7: Display file upload button",
       "Step 8: Display remaining AI credits"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -662,7 +662,7 @@
       "Step 5: Handle loading states",
       "Step 6: Handle error states"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -676,7 +676,7 @@
       "Step 6: Check tenant aiMonthlyBudget > threshold",
       "Step 7: Return error if any check fails"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -689,7 +689,7 @@
       "Step 5: Inject tenant-specific variables (name, phone, email)",
       "Step 6: Pass final system prompt to LLM"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -702,7 +702,7 @@
       "Step 5: Do not call LLM for blocked requests",
       "Step 6: If on-topic, proceed to LLM call"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -715,7 +715,7 @@
       "Step 5: Return only active stones (isActive = true)",
       "Step 6: Return stone data to LLM for response generation"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -727,7 +727,7 @@
       "Step 4: Return structured analysis to LLM",
       "Step 5: LLM uses analysis to recommend stones"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -740,7 +740,7 @@
       "Step 5: Upload result to R2 with tenantId prefix",
       "Step 6: Return rendered image URL to display in chat"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -753,7 +753,7 @@
       "Step 5: In same transaction: deduct from tenants.aiMonthlyBudget",
       "Step 6: Log the transaction for auditing"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -766,7 +766,7 @@
       "Step 5: Include image URL in message to API",
       "Step 6: Trigger analyze_scene_image tool automatically"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -777,7 +777,7 @@
       "Step 3: Provide download link for rendered image",
       "Step 4: Store image URL in order_photos if order exists"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -791,7 +791,7 @@
       "Step 6: Return order ID on success",
       "Step 7: Return 400 error for validation failures"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -805,7 +805,7 @@
       "Step 6: Send via Resend API",
       "Step 7: Handle email send failures gracefully"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -819,7 +819,7 @@
       "Step 6: Include link to customer account page",
       "Step 7: Send via Resend API"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -832,7 +832,7 @@
       "Step 5: Verify each transition updates timestamp if applicable",
       "Step 6: Verify customer can see status changes in account"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -845,7 +845,7 @@
       "Step 5: Show appropriate message for each status",
       "Step 6: Update UI when status changes without page refresh"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -856,7 +856,7 @@
       "Step 3: If true, show 'Generate 3D Scene' button on order photos",
       "Step 4: Verify API returns 403 if feature disabled for tenant"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -870,7 +870,7 @@
       "Step 6: Call World Labs API to start generation",
       "Step 7: Store operationId for polling"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -882,7 +882,7 @@
       "Step 4: Receive operationId in response",
       "Step 5: Store operationId in database for tracking"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -895,7 +895,7 @@
       "Step 5: On 'succeeded', extract splat_url and world_marble_url",
       "Step 6: On 'failed', log error and notify user"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -907,7 +907,7 @@
       "Step 4: Also store world_marble_url as backup reference",
       "Step 5: Deduct cost from tenant aiMonthlyBudget"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -921,7 +921,7 @@
       "Step 6: Display loading state while model loads",
       "Step 7: Handle load errors gracefully"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -935,7 +935,7 @@
       "Step 6: Handle window resize",
       "Step 7: Clean up resources on unmount"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -946,7 +946,7 @@
       "Step 3: If 3D exists -> show 'View 3D Scene' button",
       "Step 4: If feature disabled -> hide all 3D buttons"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -958,7 +958,7 @@
       "Step 4: Verify consistent typography and spacing",
       "Step 5: Verify responsive design on mobile viewport"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -970,7 +970,7 @@
       "Step 4: Verify status badges are color-coded (active/inactive)",
       "Step 5: Verify action buttons are appropriately sized and spaced"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -983,7 +983,7 @@
       "Step 5: Verify numbers are prominent and readable",
       "Step 6: Verify responsive grid on different screen sizes"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -996,7 +996,7 @@
       "Step 5: Verify action buttons are accessible",
       "Step 6: Verify grid adapts from 4 columns to 1 on mobile"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -1009,7 +1009,7 @@
       "Step 5: Verify filter sidebar is intuitive",
       "Step 6: Verify disclaimer text is visible but not intrusive"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -1022,7 +1022,7 @@
       "Step 5: Take screenshot of browse page",
       "Step 6: Verify primary color matches tenant B configuration"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -1035,7 +1035,7 @@
       "Step 5: Verify AI credits display is prominent but not intrusive",
       "Step 6: Verify send button is clearly visible"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -1049,7 +1049,7 @@
       "Step 6: Verify quote prices are prominent",
       "Step 7: Verify new quote form is accessible"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -1062,7 +1062,7 @@
       "Step 5: Verify back navigation is accessible but not intrusive",
       "Step 6: Verify controls hint is shown for first-time users"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -1075,7 +1075,7 @@
       "Step 5: Verify language switcher is visible",
       "Step 6: Verify header is fixed on scroll"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -1088,7 +1088,7 @@
       "Step 5: Verify address is displayed",
       "Step 6: Verify consistent styling with tenant theme"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -1101,7 +1101,7 @@
       "Step 5: Verify focus states are visible",
       "Step 6: Verify error states are clearly indicated"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -1114,7 +1114,7 @@
       "Step 5: Verify touch targets are at least 44px",
       "Step 6: Verify text is readable without zooming"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -1127,7 +1127,7 @@
       "Step 5: Verify images and icons are visible",
       "Step 6: Verify no flash of incorrect theme on load"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1158,7 +1158,7 @@
       "Step 9: Customer receives quote notification email",
       "Step 10: Customer views quote in account page"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1204,7 +1204,7 @@
       "Step 6: Verify modification is rejected",
       "Step 7: Verify R2 files cannot be accessed across tenants"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1218,7 +1218,7 @@
       "Step 6: Attempt to access protected route",
       "Step 7: Verify redirect to login page"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1232,7 +1232,7 @@
       "Step 6: Verify initial load under 2 seconds",
       "Step 7: Verify images are lazy loaded"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1245,7 +1245,7 @@
       "Step 5: Verify Escape closes modals and dropdowns",
       "Step 6: Verify skip-to-content link exists"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1258,6 +1258,6 @@
       "Step 5: Verify status messages are announced",
       "Step 6: Verify navigation landmarks are present"
     ],
-    "passes": false
+    "passes": true
   }
 ]

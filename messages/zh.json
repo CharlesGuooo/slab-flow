@@ -1,0 +1,128 @@
+{
+  "common": {
+    "siteName": "SlabFlow",
+    "loading": "加载中...",
+    "error": "发生错误",
+    "submit": "提交",
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑",
+    "back": "返回",
+    "continue": "继续"
+  },
+  "nav": {
+    "browse": "浏览石材",
+    "chat": "AI助手",
+    "calculator": "价格计算器",
+    "account": "我的账户",
+    "login": "登录",
+    "register": "注册",
+    "logout": "退出"
+  },
+  "home": {
+    "heroTitle": "优质石材表面",
+    "heroSubtitle": "为您的项目寻找完美的石材",
+    "browseStones": "浏览石材",
+    "chatWithAI": "与AI聊天"
+  },
+  "browse": {
+    "title": "浏览我们的石材系列",
+    "searchPlaceholder": "按品牌或系列搜索...",
+    "filterByType": "按类型筛选",
+    "allTypes": "所有类型",
+    "noResults": "未找到石材",
+    "requestQuote": "请求报价",
+    "chatAboutStone": "向AI咨询此石材"
+  },
+  "stone": {
+    "brand": "品牌",
+    "series": "系列",
+    "type": "石材类型",
+    "pricePerSlab": "每块价格",
+    "description": "描述",
+    "imageDisclaimer": "注意：图片仅供参考。实际石材外观可能有所不同。"
+  },
+  "auth": {
+    "registerTitle": "创建账户",
+    "loginTitle": "登录",
+    "username": "用户名",
+    "email": "邮箱",
+    "phone": "电话（可选）",
+    "pin": "输入6位PIN码",
+    "registerSuccess": "注册成功！",
+    "pinSent": "您的PIN码已发送到邮箱",
+    "loginError": "邮箱或PIN码无效"
+  },
+  "account": {
+    "title": "我的账户",
+    "profile": "个人资料",
+    "orders": "我的订单",
+    "aiCredits": "AI积分",
+    "newQuote": "新报价请求",
+    "noOrders": "暂无订单"
+  },
+  "quote": {
+    "title": "请求报价",
+    "selectStone": "选择石材",
+    "useAI": "不确定？让AI推荐石材",
+    "describeStone": "描述您想要的石材",
+    "timeline": "期望时间",
+    "budget": "预算（可选）",
+    "contractor": "我是承包商/设计师",
+    "notes": "附加说明",
+    "submit": "提交报价请求",
+    "success": "报价请求已提交！",
+    "orderNumber": "您的请求 #{orderId} 已收到"
+  },
+  "chat": {
+    "title": "AI石材助手",
+    "welcome": "您好！我是您的AI石材助手",
+    "welcomeMessage": "我可以帮您找到适合项目的完美石材",
+    "placeholder": "询问我关于石材的问题...",
+    "uploadImage": "上传照片获取个性化推荐",
+    "getQuote": "获取此石材报价"
+  },
+  "calculator": {
+    "title": "价格计算器",
+    "selectStone": "选择石材",
+    "length": "长度（英寸）",
+    "width": "宽度（英寸）",
+    "edgeProfile": "边缘造型",
+    "standardEdge": "标准边缘",
+    "fancyEdge": "花式边缘",
+    "sinkCutouts": "水槽开口数量",
+    "backsplash": "包含4英寸挡水板",
+    "calculate": "计算价格",
+    "estimate": "估价",
+    "totalEstimate": "总估价",
+    "stoneSlabs": "石材板",
+    "edgeProfileCost": "边缘造型",
+    "sinkCutoutCost": "水槽开口",
+    "backsplashCost": "挡水板",
+    "disclaimer": "这只是估价。最终价格取决于实际测量。"
+  },
+  "order": {
+    "status": {
+      "pending_quote": "待报价",
+      "quoted": "已报价",
+      "in_progress": "进行中",
+      "completed": "已完成",
+      "cancelled": "已取消"
+    },
+    "detail": "订单详情",
+    "stoneSelection": "石材选择",
+    "projectDetails": "项目详情",
+    "quoteAmount": "报价金额",
+    "photos": "项目照片",
+    "statusTimeline": "订单状态"
+  },
+  "footer": {
+    "contact": "联系方式",
+    "phone": "电话",
+    "email": "邮箱",
+    "address": "地址",
+    "quickLinks": "快速链接",
+    "copyright": "版权所有"
+  }
+}

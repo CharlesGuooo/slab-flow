@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+// Supported locales
+const locales = ['en', 'zh', 'fr'] as const;
+type Locale = (typeof locales)[number];
+const defaultLocale: Locale = 'en';
+
 // Routes that don't require tenant identification
 const PUBLIC_ROUTES = [
   '/platform-admin',
@@ -12,11 +17,18 @@ const PUBLIC_ROUTES = [
   '/sitemap.xml',
   '/suspended',
   '/not-found',
+  '/api/auth',
+  '/api/chat',
+  '/api/upload',
+  '/api/render',
+  '/api/reconstruct',
+  '/api/test-email',
+  '/images',
 ];
 
 // Static file patterns to skip
 const STATIC_PATTERNS = [
-  /\.(jpg|jpeg|png|gif|webp|svg|ico|woff|woff2|ttf|eot|css|js)$/i,
+  /\.(jpg|jpeg|png|gif|webp|avif|svg|ico|woff|woff2|ttf|eot|css|js)$/i,
 ];
 
 /**
@@ -33,71 +45,95 @@ function shouldSkipTenantCheck(pathname: string): boolean {
     return true;
   }
 
+  // Root path
+  if (pathname === '/') {
+    return true;
+  }
+
   return false;
 }
 
 /**
- * Extract domain from host header
+ * Extract locale from pathname
  */
-function extractDomain(host: string | null): string | null {
-  if (!host) return null;
+function getLocaleFromPathname(pathname: string): Locale | null {
+  const segments = pathname.split('/').filter(Boolean);
+  const firstSegment = segments[0];
 
-  // Remove port if present
-  const domain = host.split(':')[0];
+  if (locales.includes(firstSegment as Locale)) {
+    return firstSegment as Locale;
+  }
 
-  return domain;
+  return null;
+}
+
+/**
+ * Get locale from Accept-Language header
+ */
+function getLocaleFromHeader(acceptLanguage: string | null): Locale {
+  if (!acceptLanguage) return defaultLocale;
+
+  const languages = acceptLanguage.split(',').map((lang) => {
+    const [locale] = lang.trim().split(';');
+    return locale.split('-')[0].toLowerCase();
+  });
+
+  for (const lang of languages) {
+    if (locales.includes(lang as Locale)) {
+      return lang as Locale;
+    }
+  }
+
+  return defaultLocale;
 }
 
 export async function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
 
-  // Skip tenant check for public routes and static files
+  // Skip middleware for public routes and static files
   if (shouldSkipTenantCheck(pathname)) {
     return NextResponse.next();
   }
 
-  // Get the host from the request
-  const host = request.headers.get('host');
-  let domain = extractDomain(host);
+  // Determine locale - priority: URL path > cookie > Accept-Language header
+  const pathLocale = getLocaleFromPathname(pathname);
+  const cookieLocale = request.cookies.get('locale')?.value;
 
-  // For local development, allow ?tenant= query parameter to specify tenant domain
-  const tenantOverride = searchParams.get('tenant');
-  if (tenantOverride && (domain === 'localhost' || domain?.startsWith('localhost:'))) {
-    domain = tenantOverride;
+  let locale: Locale;
+
+  if (pathLocale) {
+    locale = pathLocale;
+  } else if (cookieLocale && locales.includes(cookieLocale as Locale)) {
+    locale = cookieLocale as Locale;
+  } else {
+    locale = getLocaleFromHeader(request.headers.get('accept-language'));
   }
 
-  if (!domain) {
-    // No domain found, redirect to platform home or 404
-    const url = request.nextUrl.clone();
-    url.pathname = '/';
-    return NextResponse.redirect(url);
-  }
+  // For local development, use a fixed development tenant
+  // This allows testing without needing to set up subdomains
+  const host = request.headers.get('host') || '';
+  const isLocalhost = host.startsWith('localhost');
 
-  // For local development on localhost without tenant override,
-  // set a default tenant header for development convenience
-  if (domain === 'localhost' || domain.startsWith('localhost:')) {
-    // For local development, use a fixed development tenant
-    // This allows testing without needing to set up subdomains
+  if (isLocalhost) {
     const response = NextResponse.next();
     response.headers.set('x-tenant-id', '1');  // Default to first tenant
     response.headers.set('x-tenant-name', 'Test Stone Company');
     response.headers.set('x-tenant-active', 'true');
+    response.headers.set('x-locale', locale);
     response.headers.set(
       'x-tenant-features',
       JSON.stringify({
         chatbot: true,
         calculator: true,
-        '3d-reconstruction': false,
+        '3d-reconstruction': true,
       })
     );
     return response;
   }
 
-  // For production domains, we need to look up the tenant
+  // For production domains, look up tenant
   // Since middleware runs in edge runtime and can't access SQLite directly,
-  // we'll use a redirect-based approach where the frontend makes an API call
-  // For now, for any non-localhost domain, redirect to tenant not found
-  // In production, this would be replaced with a proper database lookup
+  // redirect to not-found page for unknown domains
   const url = request.nextUrl.clone();
   url.pathname = '/not-found';
   return NextResponse.redirect(url);

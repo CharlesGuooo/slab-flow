@@ -1,3 +1,7 @@
+import createNextIntlPlugin from 'next-intl/plugin';
+
+const withNextIntl = createNextIntlPlugin('./i18n.ts');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Enable React strict mode for better development experience
@@ -13,6 +17,14 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: '*.cloudflarestream.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'api.laozhang.ai',
+      },
+      {
+        protocol: 'https',
+        hostname: 'api.worldlabs.ai',
       },
     ],
   },
@@ -31,4 +43,4 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);

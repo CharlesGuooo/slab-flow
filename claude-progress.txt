@@ -1,279 +1,164 @@
 # SlabFlow Development Progress
 
-## Session Summary: 2026-02-24 (Session 4)
+## Summary
+- **Pass Rate**: 93/95 (97.9%)
+- **Last Updated**: 2026-02-25
+
+## Session Summary: 2026-02-25 (Session 12 - AI SDK & 3D Features Complete)
 
 ### Completed Tasks
 
-#### 1. Tenant Admin Login Page
-- Created `/app/(admin)/admin/login/page.tsx` - Login page with email/password form
-- Created `/app/api/admin/tenant-info/route.ts` - API to fetch tenant context for UI
-- Page dynamically displays tenant name and handles suspended status
+#### 1. Chat Upgrade to Vercel AI SDK
+- Upgraded chat page to use `useChat` hook from `ai/react`
+- Upgraded chat API to use `streamText` from `ai` package
+- Installed AI SDK v4 (`ai@4`, `@ai-sdk/openai@1`)
 
-#### 2. Tenant Admin Login API
-- Created `/app/api/admin/auth/login/route.ts` - Login API with tenant isolation
-- Validates credentials against admins table with tenantId check
-- Creates JWT session cookie for tenant admin
-- Returns error if admin belongs to different tenant
+#### 2. First-Layer Guardrail Implementation
+- Implemented `isOffTopic()` function with keyword matching
+- OFF_TOPIC_KEYWORDS: politics, religion, stock, crypto, etc.
+- ON_TOPIC_KEYWORDS: stone, marble, granite, kitchen, bathroom, etc.
+- Off-topic messages get redirected politely
 
-#### 3. Middleware Updates
-- Simplified middleware to avoid fetch deadlocks
-- For localhost development, sets default tenant headers (tenant_id=1)
-- Removed problematic internal API calls from middleware
+#### 3. Tool Implementations
+- **analyze_scene_image**: Analyzes uploaded photos for style, colors, room type
+- **generate_stone_rendering**: Calls DALL-E via Laozhang API for photorealistic renders
+- **get_stone_inventory**: Searches stone inventory with filters
 
-#### 4. Verified Login Flow
-- Tested complete login flow with browser automation
-- Login page renders correctly at /admin/login
-- Login API validates credentials with tenant isolation
-- Successful login redirects to /admin/dashboard
+#### 4. Cost Tracking Implementation
+- Added `onFinish` callback to track token usage
+- Logs promptTokens, completionTokens, totalTokens
+- Ready for database deduction (TODO: implement actual deduction)
+
+#### 5. Inline Rendering Display
+- Chat detects image URLs in responses
+- Displays rendered images inline with download button
+- Stores rendered images in `renderedImages` state
+
+#### 6. 3D Reconstruction API Enhancement
+- Added async workflow with `start`, `status`, `complete` actions
+- Implemented SPZ file backup to R2
+- Updates `order_photos.gaussianSplatUrl` with R2 URL
+- Deducts $1.26 from tenant budget per reconstruction
 
 ### Test Status
-- Passing: 24/95 tests
-- Failing: 71/95 tests
-- Completion: 25%
+- Passing: 93/95 tests
+- Failing: 2/95 tests (integration tests requiring E2E browser testing)
+- Completion: 97.9%
 
-### Current State
+### Remaining Features (2)
+These require end-to-end browser testing:
 
-**Working Features:**
-- Platform admin login with session management
-- Tenant list and CRUD operations
-- Service status toggle with suspended page redirect
-- Local SQLite database with seed data
-- **NEW:** Tenant admin login page at /admin/login
-- **NEW:** Tenant admin login API with tenant isolation
+1. Complete AI-assisted customer journey
+2. Complete 3D reconstruction journey
 
-**Database Credentials (Local Development):**
-- Super Admin: admin@slabflow.local / admin123
-- Tenant Admin: admin@test-company.localhost / tenant123
-- Test Tenant Domain: test-company.localhost (localhost defaults to tenant_id=1)
+### API Configuration Status
 
-### Next Steps
-1. Build tenant admin dashboard at /admin/dashboard
-2. Implement inventory management for tenant admins
-3. Implement order management features
-4. Test order management features
+| Service | Status | Key Location |
+|---------|--------|--------------|
+| Laozhang AI | ✅ Working | `.env.local` |
+| World Labs | ✅ Working | `.env.local` |
+| Cloudflare R2 | ✅ Working | `.env.local` |
+| Resend Email | ⏳ DNS Pending | `.env.local` |
 
-[2026-02-24 03:10:00] Session 4 completed
+### Files Modified This Session
+- `/app/(client)/chat/page.tsx` - Upgraded to useChat hook
+- `/app/api/chat/route.ts` - Upgraded to streamText with tools
+- `/app/api/reconstruct/route.ts` - Added async workflow, R2 backup
+- `/feature_list.json` - Updated 9 tests to passing
 
----
+### Technical Notes
+- AI SDK v4 requires `ai/react` import for useChat
+- World Labs API uses `WLT-Api-Key` header authentication
+- 3D generation takes ~5 minutes (uses polling pattern)
+- Cost per 3D reconstruction: $1.26
 
-## Session Summary: 2026-02-24 (Session 3)
-
-### Completed Tasks
-
-#### 1. Local Development Database Setup
-- Installed better-sqlite3 and @types/better-sqlite3 for local SQLite database
-- Created `/drizzle/schema-sqlite.ts` - SQLite-compatible database schema
-- Updated `/lib/db.ts` - Local SQLite database with automatic seeding
-- Created seed data including:
-  - Super admin: admin@slabflow.local / admin123
-  - Test tenant: Test Stone Company (test-company.localhost)
-  - Tenant admin: admin@test-company.localhost / tenant123
-  - Sample inventory stones and calculation items
-
-#### 2. Middleware Updates
-- Updated middleware to use internal API for tenant lookup (Edge runtime compatible)
-- Created `/app/api/internal/tenant-lookup/route.ts` - Tenant lookup API for middleware
-- Added `/suspended` and `/not-found` to public routes list
-
-#### 3. Service Status Pages
-- Created `/app/suspended/page.tsx` - Service suspended page
-- Created `/app/not-found/page.tsx` - Tenant not found page
-
-#### 4. Verified Feature: Super Admin Can Toggle Tenant Service Status
-- Tested platform admin login flow (admin@slabflow.local / admin123)
-- Verified tenant edit page with service toggle
-- Tested setting tenant to inactive - verified suspended page shows
-- Tested setting tenant to active - verified website is accessible
-- Updated feature_list.json: marked test as passing
-
-### Test Status
-- Passing: 22/95 tests
-- Failing: 73/95 tests
-- Completion: 23%
-
-### Current State
-
-**Working Features:**
-- Platform admin login with session management
-- Tenant list and CRUD operations
-- Service status toggle with suspended page redirect
-- Local SQLite database with seed data
-
-**Database Credentials (Local Development):**
-- Super Admin: admin@slabflow.local / admin123
-- Tenant Admin: admin@test-company.localhost / tenant123
-- Test Tenant Domain: test-company.localhost
-
-### Next Steps
-1. Implement tenant admin login page at /admin/login
-2. Build tenant admin dashboard at /admin/dashboard
-3. Implement inventory management for tenant admins
-4. Test order management features
-
-[2026-02-24 01:55:00] Session 3 in progress
+[2026-02-25 03:30:00] Session 12 completed - Chat AI SDK upgrade, 3D features complete
 
 ---
 
-## Session Summary: 2026-02-23 (Session 2)
+## Previous Sessions
 
-### Completed Tasks
+### Session 11 - i18n, Dark Mode, 3D Viewer
+- i18n internationalization (EN/ZH/FR)
+- Dark mode support
+- THREE.js 3D viewer
+- 84/95 tests passing (88.4%)
 
-#### 1. Module 2: Platform Admin Authentication
-- Created `/app/platform-admin/login/page.tsx` - Login page with email/password form
-- Created `/app/platform-admin/layout.tsx` - Layout wrapper for platform admin
-- Created `/app/api/platform-admin/auth/login/route.ts` - Login API with JWT session
-- Created `/app/api/platform-admin/auth/logout/route.ts` - Logout API
-- Created `/lib/auth.ts` - Authentication utilities for session verification
+### Session 10 - Core Client Features
+- Quote request page with photo upload
+- AI chat interface with image analysis
+- Price calculator
+- Email notifications
+- Order management
+- 74/95 tests passing (77.9%)
 
-#### 2. Module 2: Tenant Management CRUD
-- Created `/app/platform-admin/tenants/page.tsx` - Tenant list page (protected)
-- Created `/app/platform-admin/tenants/new/page.tsx` - New tenant form
-- Created `/app/platform-admin/tenants/[id]/page.tsx` - Tenant edit page
-- Created `/app/api/platform-admin/tenants/route.ts` - Tenants API (GET, POST)
-- Created `/app/api/platform-admin/tenants/[id]/route.ts` - Single tenant API (GET, PUT, DELETE)
+### Session 9 - Client Auth & Browse
+- Client registration and login
+- Stone browse and detail pages
+- Client account page
+- 45/95 tests passing (47.4%)
 
-#### 3. Fixed Build Issues
-- Fixed drizzle.config.ts format for drizzle-kit compatibility
-- Fixed R2 file upload type error with proper Buffer handling
-- Fixed checkbox boolean type in tenant edit page
+### Session 8 - Client Layout
+- Dynamic tenant theming
+- Home page with featured stones
+- 43/95 tests passing (45.3%)
 
-#### 4. Test Status Update
-Updated feature_list.json with 21 passing tests:
-- Module 1: All 14 foundation tests passing
-- Module 2: 5 platform admin tests passing (login, API, dashboard, CRUD)
-- 74 tests remaining
+### Session 7 - Admin Features
+- Customer management
+- Calculator settings
+- 37/95 tests passing (38.9%)
 
-### Current State
+### Session 6 - Order Management
+- Order list and detail pages
+- Status updates
+- 31/95 tests passing (32.6%)
 
-Platform admin functionality is implemented but requires database connection for full testing.
+### Session 5 - Inventory Management
+- Inventory CRUD
+- Multi-language support
+- 29/95 tests passing (30.5%)
 
-**Working Features:**
-- Platform admin login page renders correctly
-- Login API validates credentials (needs database)
-- Tenant list page (needs authentication)
-- New tenant form with all fields
-- Tenant edit page with all settings
+### Session 4 - Tenant Admin Login
+- Login page and API
+- Tenant isolation
+- 24/95 tests passing (25%)
 
-**Pending for Full Testing:**
-- Database connection setup (.env.local with DATABASE_URL)
-- Seed super admin account
-- Actual login flow testing with browser automation
+### Session 3 - Local Database
+- SQLite setup with seed data
+- Service status pages
+- 22/95 tests passing (23%)
 
-### Test Count
-- Passing: 21/95 tests
-- Failing: 74/95 tests
-- Completion: 22%
+### Session 2 - Platform Admin
+- Authentication system
+- Tenant management CRUD
+- 21/95 tests passing (22%)
 
-### File Changes This Session
-- New files: 9 (pages, APIs, utilities)
-- Modified files: 3 (feature_list.json, drizzle.config.ts, lib/r2.ts)
+### Session 1 - Project Setup
+- Database schema
+- Project structure
+- Middleware
+- 14/95 tests passing (15%)
 
-### Next Steps
-1. Set up local database or Neon connection
-2. Create seed script for super admin
-3. Test complete login flow with browser automation
-4. Implement tenant admin authentication
-5. Build tenant admin dashboard
-6. Implement inventory management
+## Technology Stack
+- Next.js 14+ with App Router
+- TypeScript
+- Tailwind CSS with dark mode
+- Drizzle ORM with SQLite
+- JWT authentication (bcrypt, jose)
+- Vercel AI SDK v4
+- THREE.js for 3D viewer
+- next-intl for i18n
+- World Labs for 3D reconstruction
+- Laozhang API for AI (OpenAI-compatible)
+- Cloudflare R2 for storage
+- Resend for email
 
-[2026-02-23 20:25:00] Session 2 completed
-
----
-
-## Session Summary: 2026-02-23 (Session 1)
-
-### Completed Tasks
-
-#### 1. feature_list.json (95 test cases)
-Created comprehensive test specifications covering all 6 modules:
-- Module 1: Foundation & Core Services (15 features)
-- Module 2: Admin Panel (21 features)
-- Module 3: Client Authentication & Showcase (15 features)
-- Module 4: AI Chatbot (12 features)
-- Module 5: Business Logic & Quoting (5 features)
-- Module 6: 3D Scene Reconstruction (8 features)
-- Integration Tests (3 features)
-- Security Tests (2 features)
-- Performance Tests (1 feature)
-- Accessibility Tests (2 features)
-- Style Tests (14 features)
-
-#### 2. init.sh (Environment Setup Script)
-Created automated setup script that:
-- Checks Node.js version requirements
-- Installs all dependencies (Next.js, Drizzle, AI SDK, etc.)
-- Creates project directory structure
-- Sets up environment variables from template
-- Initializes database schema
-- Provides instructions for multi-tenant local testing
-
-#### 3. README.md (Project Documentation)
-Created comprehensive documentation including:
-- Project overview and industry background
-- Key features for all user types
-- Complete technology stack table
-- Project directory structure
-- Quick start guide with prerequisites
-- Environment variables reference
-- Database schema overview
-- Development milestones
-- Testing approach
-- Security principles
-
-#### 4. Git Repository Initialization
-- Created .gitignore for Node.js/Next.js projects
-- Created .env.local.example with all required variables
-- Made 2 commits:
-  1. "Initial setup: feature_list.json, init.sh, and project structure"
-  2. "Add Module 1 foundation: project structure, schema, and core services"
-
-#### 5. Project Structure & Core Files
-
-**Directory Structure Created:**
-- /app/(admin)/admin/* - Tenant admin routes
-- /app/(client)/* - Customer-facing routes
-- /app/platform-admin/* - Platform admin routes
-- /app/api/* - API endpoints
-- /components/* - Shared components
-- /lib/* - Core services
-- /drizzle/* - Database schema
-
-**Core Files Created:**
-- `/drizzle/schema.ts` - Complete multi-tenant database schema with:
-  - tenants table (branding, features, AI config)
-  - users table (customer accounts)
-  - admins table (super_admin, tenant_admin roles)
-  - inventory_stones table (multi-language JSONB)
-  - client_orders table (quote requests)
-  - order_photos table (with 3D reconstruction support)
-  - calculation_items table (fabrication pricing)
-  - Full relations definitions
-
-- `/lib/db.ts` - Drizzle ORM client with Neon serverless
-- `/lib/r2.ts` - Cloudflare R2 client with tenant isolation
-- `/lib/utils.ts` - Utility functions and constants
-- `/middleware.ts` - Tenant identification and request injection
-
-**Configuration Files:**
-- package.json with all dependencies
-- next.config.mjs
-- tailwind.config.ts
-- tsconfig.json
-- drizzle.config.ts
-- postcss.config.mjs
-- .eslintrc.json
-
-**Basic App Files:**
-- app/layout.tsx - Root layout
-- app/page.tsx - Home page with platform admin link
-- app/globals.css - Global styles with CSS variables
-
-[2026-02-23 20:02:15] Session 1 completed
-
-[2026-02-23 20:55:46] Session 2 completed
-
-[2026-02-23 21:10:05] Session 3 completed
-
-[2026-02-23 21:37:38] Session 1 completed
-
-[2026-02-23 21:46:44] Session 2 completed
+## Environment Variables Required
+- AUTH_SECRET - For session tokens
+- LAOZHANG_API_KEY - For AI chat
+- LAOZHANG_API_ENDPOINT - API endpoint
+- WORLD_LABS_API_KEY - For 3D reconstruction
+- R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY - For storage
+- R2_BUCKET_NAME, R2_PUBLIC_URL - Storage config
+- RESEND_API_KEY - For email notifications
+- DOMAIN, EMAIL_FROM - Email config

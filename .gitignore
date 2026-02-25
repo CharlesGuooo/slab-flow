@@ -42,3 +42,7 @@ next-env.d.ts
 
 # Drizzle
 /drizzle/meta
+
+# Database files (SQLite)
+*.db
+*.db-journal

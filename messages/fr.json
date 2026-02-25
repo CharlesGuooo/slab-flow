@@ -1,0 +1,128 @@
+{
+  "common": {
+    "siteName": "SlabFlow",
+    "loading": "Chargement...",
+    "error": "Une erreur s'est produite",
+    "submit": "Soumettre",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "back": "Retour",
+    "continue": "Continuer"
+  },
+  "nav": {
+    "browse": "Parcourir les pierres",
+    "chat": "Assistant IA",
+    "calculator": "Calculateur",
+    "account": "Mon compte",
+    "login": "Connexion",
+    "register": "S'inscrire",
+    "logout": "Se déconnecter"
+  },
+  "home": {
+    "heroTitle": "Surfaces en pierre de qualité supérieure",
+    "heroSubtitle": "Trouvez la pierre parfaite pour votre projet",
+    "browseStones": "Parcourir les pierres",
+    "chatWithAI": "Discuter avec l'IA"
+  },
+  "browse": {
+    "title": "Parcourir notre collection de pierres",
+    "searchPlaceholder": "Rechercher par marque ou série...",
+    "filterByType": "Filtrer par type",
+    "allTypes": "Tous les types",
+    "noResults": "Aucune pierre trouvée",
+    "requestQuote": "Demander un devis",
+    "chatAboutStone": "Demander à l'IA sur cette pierre"
+  },
+  "stone": {
+    "brand": "Marque",
+    "series": "Série",
+    "type": "Type de pierre",
+    "pricePerSlab": "Prix par dalle",
+    "description": "Description",
+    "imageDisclaimer": "Remarque : Les images sont fournies à titre indicatif. L'apparence réelle de la pierre peut varier."
+  },
+  "auth": {
+    "registerTitle": "Créer un compte",
+    "loginTitle": "Se connecter",
+    "username": "Nom d'utilisateur",
+    "email": "E-mail",
+    "phone": "Téléphone (optionnel)",
+    "pin": "Entrez votre code PIN à 6 chiffres",
+    "registerSuccess": "Inscription réussie !",
+    "pinSent": "Votre code PIN a été envoyé à votre e-mail",
+    "loginError": "E-mail ou code PIN invalide"
+  },
+  "account": {
+    "title": "Mon compte",
+    "profile": "Profil",
+    "orders": "Mes commandes",
+    "aiCredits": "Crédits IA",
+    "newQuote": "Nouvelle demande de devis",
+    "noOrders": "Aucune commande pour l'instant"
+  },
+  "quote": {
+    "title": "Demander un devis",
+    "selectStone": "Sélectionner une pierre",
+    "useAI": "Pas sûr ? Laissez l'IA recommander une pierre",
+    "describeStone": "Décrivez ce que vous recherchez",
+    "timeline": "Délai souhaité",
+    "budget": "Budget (optionnel)",
+    "contractor": "Je suis entrepreneur/designer",
+    "notes": "Remarques supplémentaires",
+    "submit": "Soumettre la demande de devis",
+    "success": "Demande de devis soumise !",
+    "orderNumber": "Votre demande #{orderId} a été reçue"
+  },
+  "chat": {
+    "title": "Assistant IA Pierre",
+    "welcome": "Bonjour ! Je suis votre assistant IA Pierre",
+    "welcomeMessage": "Je peux vous aider à trouver la pierre parfaite pour votre projet",
+    "placeholder": "Posez-moi des questions sur les options de pierre...",
+    "uploadImage": "Téléchargez une photo pour des recommandations personnalisées",
+    "getQuote": "Obtenir un devis pour cette pierre"
+  },
+  "calculator": {
+    "title": "Calculateur de prix",
+    "selectStone": "Sélectionner la pierre",
+    "length": "Longueur (pouces)",
+    "width": "Largeur (pouces)",
+    "edgeProfile": "Profil de bord",
+    "standardEdge": "Bord standard",
+    "fancyEdge": "Bord fantaisie",
+    "sinkCutouts": "Nombre de découpages d'évier",
+    "backsplash": "Inclure un dosseret de 4\"",
+    "calculate": "Calculer le prix",
+    "estimate": "Estimation",
+    "totalEstimate": "Estimation totale",
+    "stoneSlabs": "Dalles de pierre",
+    "edgeProfileCost": "Profil de bord",
+    "sinkCutoutCost": "Découpages d'évier",
+    "backsplashCost": "Dosseret",
+    "disclaimer": "Ceci est une estimation seulement. Le prix final dépend des mesures réelles."
+  },
+  "order": {
+    "status": {
+      "pending_quote": "En attente de devis",
+      "quoted": "Devisé",
+      "in_progress": "En cours",
+      "completed": "Terminé",
+      "cancelled": "Annulé"
+    },
+    "detail": "Détails de la commande",
+    "stoneSelection": "Sélection de pierre",
+    "projectDetails": "Détails du projet",
+    "quoteAmount": "Montant du devis",
+    "photos": "Photos du projet",
+    "statusTimeline": "Statut de la commande"
+  },
+  "footer": {
+    "contact": "Contact",
+    "phone": "Téléphone",
+    "email": "E-mail",
+    "address": "Adresse",
+    "quickLinks": "Liens rapides",
+    "copyright": "Tous droits réservés"
+  }
+}
