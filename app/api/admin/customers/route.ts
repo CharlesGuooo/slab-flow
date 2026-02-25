@@ -37,7 +37,10 @@ export async function GET() {
       })
     );
 
-    return NextResponse.json({ customers });
+    // Remove sensitive PIN hash from response
+    const safeCustomers = customers.map(({ pin, ...rest }) => rest);
+
+    return NextResponse.json({ customers: safeCustomers });
   } catch (error) {
     console.error('Customers API error:', error);
     return NextResponse.json(

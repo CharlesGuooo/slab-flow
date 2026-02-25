@@ -4,9 +4,11 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { User, Mail, Phone, Loader2, CheckCircle } from 'lucide-react';
+import { useLocalePath } from '@/lib/hooks/useLocalePath';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const localePath = useLocalePath();
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [devPin, setDevPin] = useState<string | null>(null);
@@ -102,7 +104,7 @@ export default function RegisterPage() {
           )}
 
           <Link
-            href="/login"
+            href={localePath('/login')}
             className="inline-flex items-center justify-center px-6 py-3 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
           >
             Go to Login
@@ -206,7 +208,7 @@ export default function RegisterPage() {
 
           <p className="text-center text-sm text-gray-600">
             Already have an account?{' '}
-            <Link href="/login" className="text-blue-600 hover:text-blue-700 font-medium">
+            <Link href={localePath('/login')} className="text-blue-600 hover:text-blue-700 font-medium">
               Sign in
             </Link>
           </p>

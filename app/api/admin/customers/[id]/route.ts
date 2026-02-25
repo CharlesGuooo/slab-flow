@@ -72,8 +72,11 @@ export async function GET(
       })
     );
 
+    // Remove sensitive PIN hash from response
+    const { pin: _pin, ...safeCustomer } = customer[0];
+
     return NextResponse.json({
-      customer: customer[0],
+      customer: safeCustomer,
       orders,
     });
   } catch (error) {
@@ -130,7 +133,8 @@ export async function PUT(
     }
 
     if (Object.keys(updateData).length === 0) {
-      return NextResponse.json({ customer: existing[0] });
+      const { pin: _pin2, ...safeExisting } = existing[0];
+      return NextResponse.json({ customer: safeExisting });
     }
 
     const updated = await db
@@ -139,7 +143,9 @@ export async function PUT(
       .where(eq(users.id, customerId))
       .returning();
 
-    return NextResponse.json({ customer: updated[0] });
+    // Remove sensitive PIN hash from response
+    const { pin: _updatedPin, ...safeUpdated } = updated[0];
+    return NextResponse.json({ customer: safeUpdated });
   } catch (error) {
     console.error('Update customer error:', error);
     return NextResponse.json(

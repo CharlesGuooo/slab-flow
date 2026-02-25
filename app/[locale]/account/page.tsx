@@ -14,6 +14,7 @@ import {
   AlertCircle,
   LogOut,
 } from 'lucide-react';
+import { useLocalePath } from '@/lib/hooks/useLocalePath';
 
 interface UserInfo {
   id: number;
@@ -51,6 +52,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default function AccountPage() {
   const router = useRouter();
+  const localePath = useLocalePath();
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<UserInfo | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -62,7 +64,7 @@ export default function AccountPage() {
         const response = await fetch('/api/client/account');
         if (!response.ok) {
           if (response.status === 401) {
-            router.push('/login');
+            router.push(localePath('/login'));
             return;
           }
           throw new Error('Failed to load account');
@@ -85,7 +87,7 @@ export default function AccountPage() {
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
-      router.push('/login');
+      router.push(localePath('/login'));
     } catch (err) {
       console.error('Logout error:', err);
     }
@@ -190,7 +192,7 @@ export default function AccountPage() {
                   My Orders
                 </h2>
                 <Link
-                  href="/account/new-quote"
+                  href={localePath('/account/new-quote')}
                   className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
                 >
                   <Plus className="h-4 w-4 mr-2" />
@@ -203,7 +205,7 @@ export default function AccountPage() {
                   {orders.map((order) => (
                     <Link
                       key={order.id}
-                      href={`/account/orders/${order.id}`}
+                      href={localePath(`/account/orders/${order.id}`)}
                       className="block p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                     >
                       <div className="flex items-start justify-between">
@@ -235,7 +237,7 @@ export default function AccountPage() {
                   <Package className="mx-auto h-12 w-12 text-gray-300" />
                   <p className="mt-2 text-sm text-gray-500">No orders yet</p>
                   <Link
-                    href="/browse"
+                    href={localePath('/browse')}
                     className="mt-4 inline-flex items-center text-sm text-blue-600 hover:text-blue-700"
                   >
                     Browse stones to get started

@@ -17,11 +17,6 @@ const PUBLIC_ROUTES = [
   '/sitemap.xml',
   '/suspended',
   '/not-found',
-  '/api/auth',
-  '/api/chat',
-  '/api/upload',
-  '/api/render',
-  '/api/reconstruct',
   '/api/test-email',
   '/images',
 ];
@@ -113,8 +108,9 @@ export async function middleware(request: NextRequest) {
   // This allows testing without needing to set up subdomains
   const host = request.headers.get('host') || '';
   const isLocalhost = host.startsWith('localhost');
+  const isDev = process.env.NODE_ENV === 'development';
 
-  if (isLocalhost) {
+  if (isLocalhost || isDev) {
     const response = NextResponse.next();
     response.headers.set('x-tenant-id', '1');  // Default to first tenant
     response.headers.set('x-tenant-name', 'Test Stone Company');
@@ -131,9 +127,8 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // For production domains, look up tenant
-  // Since middleware runs in edge runtime and can't access SQLite directly,
-  // redirect to not-found page for unknown domains
+  // For production domains, look up tenant from database
+  // TODO: Implement actual tenant lookup via API call
   const url = request.nextUrl.clone();
   url.pathname = '/not-found';
   return NextResponse.redirect(url);

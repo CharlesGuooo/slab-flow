@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useRef, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useLocalePath } from '@/lib/hooks/useLocalePath';
 import {
   ArrowLeft,
   Send,
@@ -29,6 +30,7 @@ interface RenderedImage {
 }
 
 export default function ChatPage() {
+  const localePath = useLocalePath();
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -141,9 +143,9 @@ export default function ChatPage() {
 
   const handleStartQuote = (stoneId: number) => {
     if (isAuthenticated) {
-      router.push(`/account/new-quote?stoneId=${stoneId}`);
+      router.push(localePath(`/account/new-quote?stoneId=${stoneId}`));
     } else {
-      router.push(`/login?redirect=/account/new-quote&stoneId=${stoneId}`);
+      router.push(localePath(`/login?redirect=/account/new-quote&stoneId=${stoneId}`));
     }
   };
 
@@ -172,7 +174,7 @@ export default function ChatPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <Link
-          href="/browse"
+          href={localePath('/browse')}
           className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
         >
           <ArrowLeft className="h-4 w-4 mr-1" />

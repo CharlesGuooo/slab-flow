@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useLocalePath } from '@/lib/hooks/useLocalePath';
 import {
   Calculator,
   ArrowLeft,
@@ -33,6 +34,7 @@ interface Stone {
 }
 
 export default function CalculatorPage() {
+  const localePath = useLocalePath();
   const [isLoading, setIsLoading] = useState(true);
   const [stones, setStones] = useState<Stone[]>([]);
   const [calculationItems, setCalculationItems] = useState<CalculationItem[]>([]);
@@ -162,7 +164,7 @@ export default function CalculatorPage() {
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
       <Link
-        href="/browse"
+        href={localePath('/browse')}
         className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 mb-6"
       >
         <ArrowLeft className="h-4 w-4 mr-1" />
@@ -347,13 +349,13 @@ export default function CalculatorPage() {
 
               <div className="pt-4 space-y-3">
                 <Link
-                  href={selectedStoneId ? `/account/new-quote?stoneId=${selectedStoneId}` : '/account/new-quote'}
+                  href={selectedStoneId ? localePath(`/account/new-quote?stoneId=${selectedStoneId}`) : localePath('/account/new-quote')}
                   className="w-full inline-flex items-center justify-center px-6 py-3 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700"
                 >
                   Request a Quote
                 </Link>
                 <Link
-                  href="/chat"
+                  href={localePath('/chat')}
                   className="w-full inline-flex items-center justify-center px-6 py-3 text-base font-medium border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                 >
                   Chat with AI Assistant

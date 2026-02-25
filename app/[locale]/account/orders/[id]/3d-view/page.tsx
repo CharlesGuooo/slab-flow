@@ -8,13 +8,14 @@ import ThreeViewer from '@/components/ThreeViewer';
 export default async function ThreeDViewPage({
   params,
 }: {
-  params: { id: string };
+  params: { id: string; locale: string };
 }) {
+  const { locale } = params;
   const headersList = await headers();
   const tenantId = headersList.get('x-tenant-id');
 
   if (!tenantId) {
-    redirect('/login');
+    redirect(`/${locale}/login`);
   }
 
   // Get the order and verify tenant ownership
@@ -52,7 +53,7 @@ export default async function ThreeDViewPage({
       {/* Back Navigation */}
       <div className="absolute top-4 left-4 z-10">
         <Link
-          href={`/account/orders/${params.id}`}
+          href={`/${locale}/account/orders/${params.id}`}
           className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 hover:bg-white text-gray-900 rounded-lg shadow-lg transition-colors"
         >
           <svg
@@ -105,7 +106,7 @@ export default async function ThreeDViewPage({
               generated yet.
             </p>
             <Link
-              href={`/account/orders/${params.id}`}
+              href={`/${locale}/account/orders/${params.id}`}
               className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
             >
               Return to Order Details

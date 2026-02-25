@@ -4,9 +4,11 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Mail, Lock, Loader2 } from 'lucide-react';
+import { useLocalePath } from '@/lib/hooks/useLocalePath';
 
 export default function LoginPage() {
   const router = useRouter();
+  const localePath = useLocalePath();
   const [isLoading, setIsLoading] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -65,7 +67,7 @@ export default function LoginPage() {
       }
 
       // Redirect to account page
-      router.push('/account');
+      router.push(localePath('/account'));
     } catch (error) {
       console.error('Login error:', error);
       setLoginError('An unexpected error occurred');
@@ -160,7 +162,7 @@ export default function LoginPage() {
 
           <p className="text-center text-sm text-gray-600">
             Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-blue-600 hover:text-blue-700 font-medium">
+            <Link href={localePath('/register')} className="text-blue-600 hover:text-blue-700 font-medium">
               Register
             </Link>
           </p>

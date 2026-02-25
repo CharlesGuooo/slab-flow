@@ -14,6 +14,7 @@ import {
   X,
   Camera,
 } from 'lucide-react';
+import { useLocalePath } from '@/lib/hooks/useLocalePath';
 
 interface Stone {
   id: number;
@@ -38,6 +39,7 @@ const DESIRED_DATE_OPTIONS = [
 ];
 
 export default function NewQuotePage() {
+  const localePath = useLocalePath();
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedStoneId = searchParams.get('stoneId');
@@ -249,13 +251,13 @@ export default function NewQuotePage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              href="/account"
+              href={localePath('/account')}
               className="inline-flex items-center justify-center px-6 py-3 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
             >
               View My Orders
             </Link>
             <Link
-              href="/browse"
+              href={localePath('/browse')}
               className="inline-flex items-center justify-center px-6 py-3 text-base font-medium border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
             >
               Continue Browsing
@@ -269,7 +271,7 @@ export default function NewQuotePage() {
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
       <Link
-        href="/account"
+        href={localePath('/account')}
         className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 mb-6"
       >
         <ArrowLeft className="h-4 w-4 mr-1" />

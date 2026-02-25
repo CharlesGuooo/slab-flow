@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Search, Package, Loader2, Filter } from 'lucide-react';
+import { useLocalePath } from '@/lib/hooks/useLocalePath';
 
 interface Stone {
   id: number;
@@ -24,6 +25,7 @@ const STONE_TYPES = [
 ];
 
 export default function BrowsePage() {
+  const localePath = useLocalePath();
   const [stones, setStones] = useState<Stone[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -132,7 +134,7 @@ export default function BrowsePage() {
             {filteredStones.map((stone) => (
               <Link
                 key={stone.id}
-                href={`/browse/${stone.id}`}
+                href={localePath(`/browse/${stone.id}`)}
                 className="group bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow"
               >
                 <div className="aspect-square relative bg-gray-100">

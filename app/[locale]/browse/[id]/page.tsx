@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Loader2, AlertCircle, Package, MessageCircle } from 'lucide-react';
+import { useLocalePath } from '@/lib/hooks/useLocalePath';
 
 interface Stone {
   id: number;
@@ -19,6 +20,7 @@ interface Stone {
 export default function StoneDetailPage() {
   const params = useParams();
   const stoneId = params.id as string;
+  const localePath = useLocalePath();
 
   const [stone, setStone] = useState<Stone | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -94,7 +96,7 @@ export default function StoneDetailPage() {
           </div>
         </div>
         <Link
-          href="/browse"
+          href={localePath('/browse')}
           className="mt-4 inline-flex items-center text-sm text-blue-600 hover:text-blue-700"
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
@@ -109,7 +111,7 @@ export default function StoneDetailPage() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Back link */}
         <Link
-          href="/browse"
+          href={localePath('/browse')}
           className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 mb-6"
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
@@ -174,13 +176,13 @@ export default function StoneDetailPage() {
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4">
               <Link
-                href="/register"
+                href={localePath('/register')}
                 className="flex-1 inline-flex items-center justify-center px-6 py-3 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
               >
                 Request Quote
               </Link>
               <Link
-                href="/chat"
+                href={localePath('/chat')}
                 className="flex-1 inline-flex items-center justify-center px-6 py-3 text-base font-medium border-2 border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50"
               >
                 <MessageCircle className="h-5 w-5 mr-2" />

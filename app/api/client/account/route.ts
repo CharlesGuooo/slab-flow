@@ -77,8 +77,11 @@ export async function GET() {
       })
     );
 
+    // Strip sensitive data before returning
+    const { pin, ...safeUser } = userResult[0];
+
     return NextResponse.json({
-      user: userResult[0],
+      user: safeUser,
       orders,
     });
   } catch (error) {

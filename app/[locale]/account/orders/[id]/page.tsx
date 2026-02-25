@@ -17,6 +17,7 @@ import {
   User,
   Box,
 } from 'lucide-react';
+import { useLocalePath } from '@/lib/hooks/useLocalePath';
 
 interface Order {
   id: number;
@@ -59,6 +60,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
 };
 
 export default function OrderDetailPage() {
+  const localePath = useLocalePath();
   const router = useRouter();
   const params = useParams();
   const orderId = params.id as string;
@@ -76,7 +78,7 @@ export default function OrderDetailPage() {
 
         if (!response.ok) {
           if (response.status === 401) {
-            router.push('/login');
+            router.push(localePath('/login'));
             return;
           }
           throw new Error('Failed to load order');
@@ -144,7 +146,7 @@ export default function OrderDetailPage() {
           <h1 className="text-xl font-bold text-gray-900 mb-2">Order Not Found</h1>
           <p className="text-gray-600 mb-6">{error || 'The order you\'re looking for doesn\'t exist.'}</p>
           <Link
-            href="/account"
+            href={localePath('/account')}
             className="inline-flex items-center justify-center px-6 py-3 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
           >
             Back to Account
@@ -160,7 +162,7 @@ export default function OrderDetailPage() {
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
       <Link
-        href="/account"
+        href={localePath('/account')}
         className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 mb-6"
       >
         <ArrowLeft className="h-4 w-4 mr-1" />
@@ -307,7 +309,7 @@ export default function OrderDetailPage() {
                   {/* 3D View Button */}
                   {photo.gaussianSplatUrl && (
                     <Link
-                      href={`/account/orders/${orderId}/3d-view`}
+                      href={localePath(`/account/orders/${orderId}/3d-view`)}
                       className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <div className="flex flex-col items-center text-white">
@@ -371,13 +373,13 @@ export default function OrderDetailPage() {
         {/* Actions */}
         <div className="p-6 border-t border-gray-200 flex gap-4">
           <Link
-            href="/browse"
+            href={localePath('/browse')}
             className="flex-1 inline-flex items-center justify-center px-6 py-3 text-base font-medium border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
           >
             Continue Browsing
           </Link>
           <Link
-            href="/chat"
+            href={localePath('/chat')}
             className="flex-1 inline-flex items-center justify-center px-6 py-3 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
           >
             Chat with AI Assistant
