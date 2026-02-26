@@ -153,7 +153,13 @@
     "viewScene": "View 3D Scene",
     "recentScenes": "Recent 3D Scenes",
     "noScenes": "No 3D scenes generated yet",
-    "featureDisabled": "3D Scene Generation is not available for this store"
+    "featureDisabled": "3D Scene Generation is not available for this store",
+    "step1Title": "Upload Photo",
+    "step1Desc": "Take a photo of your kitchen, bathroom, or any space you want to transform",
+    "step2Title": "AI Processing",
+    "step2Desc": "Our AI reconstructs a detailed 3D scene from your 2D photo using World Labs technology",
+    "step3Title": "Explore in 3D",
+    "step3Desc": "Navigate through an interactive 3D version of your space and visualize stone options"
   },
   "order": {
     "status": {

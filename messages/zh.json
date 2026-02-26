@@ -153,7 +153,13 @@
     "viewScene": "查看3D场景",
     "recentScenes": "最近的3D场景",
     "noScenes": "尚未生成3D场景",
-    "featureDisabled": "此商店暂不提供3D场景生成功能"
+    "featureDisabled": "此商店暂不提供3D场景生成功能",
+    "step1Title": "上传照片",
+    "step1Desc": "拍摄您想要改造的厨房、浴室或任何空间的照片",
+    "step2Title": "AI处理",
+    "step2Desc": "我们的AI使用World Labs技术从您的2D照片重建详细的3D场景",
+    "step3Title": "3D探索",
+    "step3Desc": "浏览您空间的交互式3D版本并可视化石材选项"
   },
   "order": {
     "status": {

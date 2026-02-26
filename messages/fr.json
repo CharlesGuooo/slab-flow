@@ -153,7 +153,13 @@
     "viewScene": "Voir la scène 3D",
     "recentScenes": "Scènes 3D récentes",
     "noScenes": "Aucune scène 3D générée pour le moment",
-    "featureDisabled": "La génération de scènes 3D n'est pas disponible pour ce magasin"
+    "featureDisabled": "La génération de scènes 3D n'est pas disponible pour ce magasin",
+    "step1Title": "Télécharger Photo",
+    "step1Desc": "Prenez une photo de votre cuisine, salle de bain ou tout espace que vous souhaitez transformer",
+    "step2Title": "Traitement IA",
+    "step2Desc": "Notre IA reconstruit une scène 3D détaillée à partir de votre photo 2D avec la technologie World Labs",
+    "step3Title": "Explorer en 3D",
+    "step3Desc": "Naviguez dans une version 3D interactive de votre espace et visualisez les options de pierre"
   },
   "order": {
     "status": {

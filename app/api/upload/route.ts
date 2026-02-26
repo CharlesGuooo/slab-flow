@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { jwtVerify } from 'jose';
-import { db, tenants } from '@/lib/db';
-import { eq } from 'drizzle-orm';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.AUTH_SECRET || 'default-secret-change-in-production'
 );
 
+/**
+ * POST - Upload an image file
+ * On Vercel serverless, we convert to base64 data URL for immediate use.
+ * TODO: In production, upload to Cloudflare R2 for persistent storage.
+ */
 export async function POST(request: Request) {
   try {
     // Verify session
@@ -23,22 +24,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    const tenantId = payload.tenantId as number;
-
-    // Get tenant for path prefix
-    const tenant = await db
-      .select()
-      .from(tenants)
-      .where(eq(tenants.id, tenantId))
-      .limit(1);
-
-    if (!tenant.length) {
-      return NextResponse.json(
-        { error: 'Tenant not found' },
-        { status: 404 }
-      );
-    }
+    await jwtVerify(token, JWT_SECRET);
 
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
@@ -67,29 +53,16 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create upload directory
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', String(tenantId));
-    await mkdir(uploadDir, { recursive: true });
-
-    // Generate unique filename
-    const timestamp = Date.now();
-    const randomStr = Math.random().toString(36).substring(7);
-    const ext = file.name.split('.').pop() || 'jpg';
-    const filename = `${timestamp}-${randomStr}.${ext}`;
-    const filepath = path.join(uploadDir, filename);
-
-    // Write file
+    // Convert to base64 data URL for immediate use
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    await writeFile(filepath, buffer);
-
-    // Return public URL
-    const publicUrl = `/uploads/${tenantId}/${filename}`;
+    const base64 = buffer.toString('base64');
+    const dataUrl = `data:${file.type};base64,${base64}`;
 
     return NextResponse.json({
       success: true,
-      url: publicUrl,
-      filename,
+      url: dataUrl,
+      filename: file.name,
       size: file.size,
       type: file.type,
     });
