@@ -95,7 +95,7 @@ export default function RegisterPage() {
           {devPin && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-yellow-700">
-                <strong>Development Mode:</strong> Your PIN is:
+                <strong>Your PIN is:</strong>
               </p>
               <p className="text-2xl font-mono font-bold text-yellow-800 mt-2">
                 {devPin}
