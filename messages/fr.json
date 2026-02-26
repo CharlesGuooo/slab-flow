@@ -54,6 +54,7 @@
   },
   "browse": {
     "title": "Parcourir notre collection de pierres",
+    "subtitle": "Explorez notre collection de surfaces en pierre haut de gamme des meilleurs fournisseurs",
     "searchPlaceholder": "Rechercher par marque ou série...",
     "filterByType": "Filtrer par type",
     "allTypes": "Tous les types",
