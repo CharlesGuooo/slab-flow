@@ -88,13 +88,15 @@ function setTenantHeaders(
 
 /**
  * Check if the host is a platform domain (slabflow.site)
+ * Only exact domain matches count as platform domain.
+ * Vercel deployment URLs (*.vercel.app) are treated as tenant domains
+ * so we can preview the tenant site without a custom domain.
  */
 function isPlatformDomain(host: string): boolean {
-  // Check exact matches
+  // Only exact matches for slabflow.site
   if (PLATFORM_DOMAINS.some((d) => host === d)) return true;
-  // Check if it's a Vercel deployment URL or contains slabflow/slab-flow
-  if (host.includes('slab-flow') && host.includes('vercel.app')) return true;
-  if (host.includes('slabflow') && !host.includes('chstone')) return true;
+  // slabflow.site without www
+  if (host === 'slabflow.site') return true;
   return false;
 }
 
