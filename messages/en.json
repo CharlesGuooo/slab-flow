@@ -9,22 +9,48 @@
     "delete": "Delete",
     "edit": "Edit",
     "back": "Back",
-    "continue": "Continue"
+    "continue": "Continue",
+    "loginRequired": "Please sign in to access this feature",
+    "loginRequiredDesc": "You need an account to use this feature. Sign in or create a free account to get started.",
+    "signInNow": "Sign In Now",
+    "createAccount": "Create Account"
   },
   "nav": {
+    "home": "Home",
     "browse": "Browse Stones",
     "chat": "AI Assistant",
     "calculator": "Calculator",
+    "threeDGen": "3D Scene",
     "account": "My Account",
-    "login": "Login",
+    "login": "Sign In",
     "register": "Register",
     "logout": "Sign Out"
   },
   "home": {
-    "heroTitle": "Premium Stone Surfaces",
-    "heroSubtitle": "Find the perfect stone for your project",
-    "browseStones": "Browse Stones",
-    "chatWithAI": "Chat with AI"
+    "tagline": "Premium Natural Stone",
+    "heroTitle": "Crafted by Nature,",
+    "heroTitleHighlight": "Perfected for You",
+    "heroSubtitle": "Discover our curated collection of premium marble, granite, and quartz surfaces. Each piece tells a story millions of years in the making.",
+    "exploreCollection": "Explore Collection",
+    "signIn": "Sign In",
+    "scroll": "Scroll",
+    "featuredTitle": "Our Collection",
+    "featuredHeading": "Featured Stones",
+    "viewAll": "View All Collection",
+    "perSlab": "/ slab",
+    "whyChooseUs": "Why Choose Us",
+    "excellenceTitle": "Excellence in Every Slab",
+    "premiumQuality": "Premium Quality",
+    "premiumQualityDesc": "Hand-selected stones from the world's finest quarries. Each slab is inspected for quality, color consistency, and structural integrity.",
+    "smartRecommendations": "Smart Recommendations",
+    "smartRecommendationsDesc": "Our AI-powered assistant helps you find the perfect stone for your project, matching your style preferences and budget requirements.",
+    "instantPricing": "Instant Pricing",
+    "instantPricingDesc": "Get accurate cost estimates instantly with our built-in calculator. Factor in dimensions, edge profiles, and installation for transparent pricing.",
+    "ctaTitle": "Ready to Transform Your Space?",
+    "ctaSubtitle": "Browse our extensive collection or speak with our AI assistant to find the perfect stone for your project.",
+    "chatWithAI": "Chat with AI Assistant",
+    "getQuote": "Get a Quote",
+    "imageDisclaimer": "Images are for reference only. Please refer to the actual product."
   },
   "browse": {
     "title": "Browse Our Stone Collection",
@@ -52,7 +78,12 @@
     "pin": "Enter your 6-digit PIN",
     "registerSuccess": "Registration successful!",
     "pinSent": "Your PIN has been sent to your email",
-    "loginError": "Invalid email or PIN"
+    "loginError": "Invalid email or PIN",
+    "merchantLogin": "Merchant Login",
+    "customerLogin": "Customer Login",
+    "password": "Password",
+    "merchantDesc": "Access your store management dashboard",
+    "customerDesc": "Browse stones and manage your orders"
   },
   "account": {
     "title": "My Account",
@@ -76,12 +107,19 @@
     "orderNumber": "Your request #{orderId} has been received"
   },
   "chat": {
-    "title": "AI Stone Assistant",
-    "welcome": "Hello! I'm your AI Stone Assistant",
-    "welcomeMessage": "I can help you find the perfect stone for your project",
-    "placeholder": "Ask me about stone options...",
+    "title": "AI Stone Consultant",
+    "welcome": "Welcome to Your Personal Stone Consultant",
+    "welcomeMessage": "I'm here to help you discover the perfect natural stone for your project. Whether you're renovating a kitchen, designing a bathroom, or planning a commercial space — I'll guide you through our collection.",
+    "placeholder": "Describe your project or ask about our stones...",
     "uploadImage": "Upload a photo for personalized recommendations",
-    "getQuote": "Get a quote for this stone"
+    "getQuote": "Get a quote for this stone",
+    "suggestion1": "What stone is best for kitchen countertops?",
+    "suggestion2": "I need a white marble with gray veins",
+    "suggestion3": "Show me budget-friendly options for bathroom",
+    "suggestion4": "What's the difference between quartz and granite?",
+    "tipUpload": "Tip: Upload a photo of your space for personalized stone recommendations",
+    "backToBrowse": "Back to Browse",
+    "aiThinking": "Thinking..."
   },
   "calculator": {
     "title": "Price Calculator",
@@ -101,6 +139,21 @@
     "sinkCutoutCost": "Sink Cutouts",
     "backsplashCost": "Backsplash",
     "disclaimer": "This is an estimate only. Final pricing depends on actual measurements."
+  },
+  "threeDGen": {
+    "title": "3D Scene Generator",
+    "subtitle": "Transform your 2D photos into immersive 3D scenes using cutting-edge AI technology",
+    "uploadTitle": "Upload Your Space",
+    "uploadDesc": "Upload a photo of your kitchen, bathroom, or any space to generate an interactive 3D scene",
+    "selectPhoto": "Select Photo",
+    "dragDrop": "or drag and drop",
+    "supportedFormats": "Supports JPG, PNG, WebP (max 10MB)",
+    "generate": "Generate 3D Scene",
+    "generating": "Generating 3D scene... This may take up to 5 minutes",
+    "viewScene": "View 3D Scene",
+    "recentScenes": "Recent 3D Scenes",
+    "noScenes": "No 3D scenes generated yet",
+    "featureDisabled": "3D Scene Generation is not available for this store"
   },
   "order": {
     "status": {
@@ -123,6 +176,8 @@
     "email": "Email",
     "address": "Address",
     "quickLinks": "Quick Links",
-    "copyright": "All rights reserved"
+    "copyright": "All rights reserved",
+    "description": "Premium natural stone surfaces for residential and commercial projects. Discover the beauty of marble, granite, and quartz crafted by nature.",
+    "poweredBy": "Powered by"
   }
 }

@@ -1,28 +1,12 @@
 'use client';
 
 import { useChat } from 'ai/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { useRef, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useTranslations } from 'next-intl';
 import { useLocalePath } from '@/lib/hooks/useLocalePath';
-import {
-  ArrowLeft,
-  Send,
-  Loader2,
-  Bot,
-  User,
-  Sparkles,
-  Upload,
-  X,
-  ImageIcon,
-} from 'lucide-react';
-
-interface StoneRecommendation {
-  stoneId: number;
-  stoneName: string;
-  reason: string;
-}
 
 interface RenderedImage {
   imageUrl: string;
@@ -32,6 +16,10 @@ interface RenderedImage {
 export default function ChatPage() {
   const localePath = useLocalePath();
   const router = useRouter();
+  const params = useParams();
+  const locale = (params?.locale as string) || 'en';
+  const t = useTranslations('chat');
+  const tCommon = useTranslations('common');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -40,7 +28,6 @@ export default function ChatPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Use Vercel AI SDK's useChat hook
   const {
     messages,
     input,
@@ -48,28 +35,19 @@ export default function ChatPage() {
     handleSubmit,
     isLoading,
     error,
-    append,
   } = useChat({
     api: '/api/chat',
-    body: {
-      imageUrl: uploadedImage,
-    },
+    body: { imageUrl: uploadedImage },
     onFinish: (message) => {
-      // Check if message contains a rendered image
       const renderMatch = message.content.match(/!\[.*?\]\((https?:\/\/[^\s)]+)\)/);
       if (renderMatch) {
-        setRenderedImages(prev => [...prev, {
-          imageUrl: renderMatch[1],
-          stoneName: 'Rendered Stone',
-        }]);
+        setRenderedImages(prev => [...prev, { imageUrl: renderMatch[1], stoneName: 'Rendered Stone' }]);
       }
-      // Clear uploaded image after sending
       setUploadedImage(null);
     },
   });
 
   useEffect(() => {
-    // Check if user is authenticated
     const checkAuth = async () => {
       try {
         const response = await fetch('/api/client/account');
@@ -82,70 +60,35 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
-    // Scroll to bottom when new messages arrive
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      alert('Please upload an image file');
-      return;
-    }
-
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Image must be less than 10MB');
-      return;
-    }
-
+    if (!file.type.startsWith('image/')) { alert('Please upload an image file'); return; }
+    if (file.size > 10 * 1024 * 1024) { alert('Image must be less than 10MB'); return; }
     setIsUploading(true);
-
     try {
       const formData = new FormData();
       formData.append('file', file);
-
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
+      const response = await fetch('/api/upload', { method: 'POST', body: formData });
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to upload image');
-      }
-
+      if (!response.ok) throw new Error(data.error || 'Failed to upload image');
       setUploadedImage(data.url);
-    } catch (error) {
-      console.error('Upload error:', error);
-      alert(error instanceof Error ? error.message : 'Failed to upload image');
+    } catch (err) {
+      console.error('Upload error:', err);
+      alert(err instanceof Error ? err.message : 'Failed to upload image');
     } finally {
       setIsUploading(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (input.trim() || uploadedImage) {
-        handleSubmit(e as unknown as React.FormEvent);
-      }
-    }
-  };
-
-  const handleStartQuote = (stoneId: number) => {
-    if (isAuthenticated) {
-      router.push(localePath(`/account/new-quote?stoneId=${stoneId}`));
-    } else {
-      router.push(localePath(`/login?redirect=/account/new-quote&stoneId=${stoneId}`));
+      if (input.trim() || uploadedImage) handleSubmit(e as unknown as React.FormEvent);
     }
   };
 
@@ -155,60 +98,96 @@ export default function ChatPage() {
   };
 
   const suggestedQuestions = [
-    'What stone is best for kitchen countertops?',
-    'I need a white marble with gray veins',
-    'Show me budget-friendly options for bathroom vanity',
-    'What is the difference between quartz and granite?',
+    t('suggestion1'),
+    t('suggestion2'),
+    t('suggestion3'),
+    t('suggestion4'),
   ];
 
+  // Not authenticated - show login prompt
+  if (isAuthenticated === false) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center px-4">
+        <div className="max-w-md w-full text-center">
+          <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-10 h-10 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-stone-900 mb-3">{tCommon('loginRequired')}</h2>
+          <p className="text-stone-500 mb-8">{tCommon('loginRequiredDesc')}</p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link href={`/${locale}/login?redirect=/${locale}/chat`}
+              className="px-6 py-3 text-sm font-medium text-white bg-stone-900 rounded-md hover:bg-stone-800 transition-all">
+              {tCommon('signInNow')}
+            </Link>
+            <Link href={`/${locale}/register`}
+              className="px-6 py-3 text-sm font-medium text-stone-700 border border-stone-200 rounded-md hover:bg-stone-50 transition-all">
+              {tCommon('createAccount')}
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading auth state
   if (isAuthenticated === null) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <div className="flex items-center gap-3 text-stone-400">
+          <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          <span className="text-sm">{tCommon('loading')}</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 h-[calc(100vh-8rem)] flex flex-col">
+    <div className="max-w-4xl mx-auto py-6 px-4 h-[calc(100vh-5rem)] flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <Link
-          href={localePath('/browse')}
-          className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
-        >
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          Back to Browse
+      <div className="flex items-center justify-between mb-4">
+        <Link href={localePath('/browse')}
+          className="inline-flex items-center text-sm text-stone-400 hover:text-stone-600 transition-colors">
+          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          {t('backToBrowse')}
         </Link>
-        <div className="flex items-center gap-2 text-purple-600">
-          <Sparkles className="h-5 w-5" />
-          <span className="font-medium">AI Stone Assistant</span>
+        <div className="flex items-center gap-2 text-amber-700">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+          <span className="text-sm font-semibold tracking-wide">{t('title')}</span>
         </div>
       </div>
 
       {/* Chat Container */}
-      <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col overflow-hidden">
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 bg-white rounded-xl border border-stone-100 shadow-sm flex flex-col overflow-hidden">
+        {/* Messages Area */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center px-4">
-              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4">
-                <Bot className="h-8 w-8 text-purple-600" />
+              {/* Welcome State */}
+              <div className="w-16 h-16 bg-[#f5f0ea] rounded-full flex items-center justify-center mb-5">
+                <svg className="w-8 h-8 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
               </div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                Hello! I&apos;m your AI Stone Assistant
-              </h2>
-              <p className="text-gray-600 mb-6 max-w-md">
-                I can help you find the perfect stone for your project. Tell me about your
-                needs, style preferences, or budget, and I&apos;ll recommend the best options.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-md">
+              <h2 className="text-xl font-bold text-stone-900 mb-2">{t('welcome')}</h2>
+              <p className="text-sm text-stone-500 mb-8 max-w-md leading-relaxed">{t('welcomeMessage')}</p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-lg">
                 {suggestedQuestions.map((question, index) => (
                   <button
                     key={index}
                     onClick={() => handleSuggestionClick(question)}
-                    className="text-left px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-lg text-sm text-gray-700 transition-colors"
+                    className="text-left px-4 py-3 bg-[#faf8f5] hover:bg-[#f5f0ea] border border-stone-100 rounded-lg text-sm text-stone-600 transition-all hover:border-amber-200 group"
                   >
+                    <span className="text-amber-700 mr-2 group-hover:mr-3 transition-all">&rarr;</span>
                     {question}
                   </button>
                 ))}
@@ -217,79 +196,50 @@ export default function ChatPage() {
           ) : (
             <>
               {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex gap-3 ${
-                    message.role === 'user' ? 'justify-end' : 'justify-start'
-                  }`}
-                >
+                <div key={message.id} className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {message.role === 'assistant' && (
-                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Bot className="h-4 w-4 text-purple-600" />
+                    <div className="w-8 h-8 bg-[#f5f0ea] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <svg className="w-4 h-4 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      </svg>
                     </div>
                   )}
-                  <div
-                    className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                      message.role === 'user'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-900'
-                    }`}
-                  >
-                    {/* Show uploaded image for user message */}
-                    {message.role === 'user' && uploadedImage && message === messages[messages.length - 1] && (
-                      <div className="mb-2">
-                        <Image
-                          src={uploadedImage}
-                          alt="Uploaded image"
-                          width={300}
-                          height={200}
-                          className="rounded-lg max-w-full"
-                        />
-                      </div>
-                    )}
-                    <p className="whitespace-pre-wrap">{message.content}</p>
-                    <p
-                      className={`text-xs mt-1 ${
-                        message.role === 'user' ? 'text-blue-100' : 'text-gray-400'
-                      }`}
-                    >
-                      {new Date(message.createdAt || Date.now()).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                  <div className={`max-w-[75%] rounded-xl px-4 py-3 ${
+                    message.role === 'user'
+                      ? 'bg-stone-900 text-white'
+                      : 'bg-[#faf8f5] text-stone-800 border border-stone-100'
+                  }`}>
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
+                    <p className={`text-[10px] mt-1.5 ${message.role === 'user' ? 'text-stone-400' : 'text-stone-400'}`}>
+                      {new Date(message.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
                   {message.role === 'user' && (
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <User className="h-4 w-4 text-blue-600" />
+                    <div className="w-8 h-8 bg-stone-900 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
                     </div>
                   )}
                 </div>
               ))}
 
-              {/* Show rendered images inline */}
+              {/* Rendered images */}
               {renderedImages.length > 0 && (
                 <div className="flex gap-3 justify-start">
-                  <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <ImageIcon className="h-4 w-4 text-purple-600" />
+                  <div className="w-8 h-8 bg-[#f5f0ea] rounded-full flex items-center justify-center flex-shrink-0">
+                    <svg className="w-4 h-4 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
                   </div>
-                  <div className="bg-gray-100 rounded-lg p-3">
-                    <p className="text-sm text-gray-600 mb-2">AI Generated Rendering:</p>
-                    <div className="grid grid-cols-1 gap-2">
+                  <div className="bg-[#faf8f5] border border-stone-100 rounded-xl p-4">
+                    <p className="text-xs text-stone-500 mb-3 font-medium">AI Generated Rendering</p>
+                    <div className="grid grid-cols-1 gap-3">
                       {renderedImages.map((img, idx) => (
-                        <div key={idx} className="relative">
-                          <Image
-                            src={img.imageUrl}
-                            alt={img.stoneName}
-                            width={400}
-                            height={300}
-                            className="rounded-lg"
-                          />
-                          <a
-                            href={img.imageUrl}
-                            download
-                            className="absolute bottom-2 right-2 bg-white/90 px-2 py-1 rounded text-xs text-gray-700 hover:bg-white"
-                          >
+                        <div key={idx} className="relative rounded-lg overflow-hidden">
+                          <Image src={img.imageUrl} alt={img.stoneName} width={400} height={300} className="rounded-lg" />
+                          <a href={img.imageUrl} download
+                            className="absolute bottom-2 right-2 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-md text-xs text-stone-700 hover:bg-white transition-all font-medium">
                             Download
                           </a>
                         </div>
@@ -299,20 +249,31 @@ export default function ChatPage() {
                 </div>
               )}
 
+              {/* Loading indicator */}
               {isLoading && (
                 <div className="flex gap-3 justify-start">
-                  <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Bot className="h-4 w-4 text-purple-600" />
+                  <div className="w-8 h-8 bg-[#f5f0ea] rounded-full flex items-center justify-center flex-shrink-0">
+                    <svg className="w-4 h-4 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
                   </div>
-                  <div className="bg-gray-100 rounded-lg px-4 py-2">
-                    <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                  <div className="bg-[#faf8f5] border border-stone-100 rounded-xl px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex gap-1">
+                        <span className="w-1.5 h-1.5 bg-amber-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-1.5 h-1.5 bg-amber-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-1.5 h-1.5 bg-amber-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
+                      <span className="text-xs text-stone-400">{t('aiThinking')}</span>
+                    </div>
                   </div>
                 </div>
               )}
 
+              {/* Error */}
               {error && (
-                <div className="text-center text-red-500 text-sm p-2 bg-red-50 rounded">
-                  Error: {error.message}
+                <div className="bg-red-50 border border-red-100 rounded-lg px-4 py-3 text-sm text-red-600">
+                  {error.message}
                 </div>
               )}
 
@@ -321,72 +282,62 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* Input */}
-        <div className="border-t border-gray-200 p-4">
+        {/* Input Area */}
+        <div className="border-t border-stone-100 p-4 bg-white">
           {/* Image preview */}
           {uploadedImage && (
             <div className="mb-3 relative inline-block">
-              <Image
-                src={uploadedImage}
-                alt="Preview"
-                width={150}
-                height={100}
-                className="rounded-lg"
-              />
-              <button
-                type="button"
-                onClick={() => setUploadedImage(null)}
-                className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600"
-              >
-                <X className="h-4 w-4" />
+              <Image src={uploadedImage} alt="Preview" width={120} height={80} className="rounded-lg border border-stone-100" />
+              <button type="button" onClick={() => setUploadedImage(null)}
+                className="absolute -top-2 -right-2 w-5 h-5 bg-stone-900 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="flex gap-2">
-            {/* Image upload button */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading || isLoading}
-              className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-              title="Upload image"
-            >
+          <form onSubmit={handleSubmit} className="flex items-end gap-2">
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+            
+            {/* Upload button */}
+            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading || isLoading}
+              className="flex-shrink-0 w-10 h-10 flex items-center justify-center border border-stone-200 rounded-lg hover:bg-stone-50 disabled:opacity-50 transition-all"
+              title={t('uploadImage')}>
               {isUploading ? (
-                <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                <svg className="w-4 h-4 animate-spin text-stone-400" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
               ) : (
-                <Upload className="h-5 w-5 text-gray-500" />
+                <svg className="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
               )}
             </button>
 
+            {/* Text input */}
             <textarea
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={uploadedImage ? "Describe what you'd like to know about this image..." : "Ask me about stone options..."}
+              placeholder={t('placeholder')}
               rows={1}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+              className="flex-1 px-4 py-2.5 border border-stone-200 rounded-lg focus:ring-1 focus:ring-amber-300 focus:border-amber-300 resize-none text-sm text-stone-800 placeholder:text-stone-400 bg-[#faf8f5]"
               disabled={isLoading}
             />
-            <button
-              type="submit"
-              disabled={(!input.trim() && !uploadedImage) || isLoading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Send className="h-5 w-5" />
+
+            {/* Send button */}
+            <button type="submit" disabled={(!input.trim() && !uploadedImage) || isLoading}
+              className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-stone-900 text-white rounded-lg hover:bg-stone-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
             </button>
           </form>
-          <p className="text-xs text-gray-400 mt-2">
-            Tip: Upload a photo of your kitchen or bathroom for personalized recommendations
-          </p>
+          
+          <p className="text-[10px] text-stone-400 mt-2 text-center">{t('tipUpload')}</p>
         </div>
       </div>
     </div>

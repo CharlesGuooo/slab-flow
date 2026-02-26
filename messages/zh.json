@@ -9,22 +9,48 @@
     "delete": "删除",
     "edit": "编辑",
     "back": "返回",
-    "continue": "继续"
+    "continue": "继续",
+    "loginRequired": "请先登录以使用此功能",
+    "loginRequiredDesc": "您需要一个账户才能使用此功能。请登录或创建免费账户以开始使用。",
+    "signInNow": "立即登录",
+    "createAccount": "创建账户"
   },
   "nav": {
+    "home": "首页",
     "browse": "浏览石材",
     "chat": "AI助手",
     "calculator": "价格计算器",
+    "threeDGen": "3D场景",
     "account": "我的账户",
     "login": "登录",
     "register": "注册",
     "logout": "退出"
   },
   "home": {
-    "heroTitle": "优质石材表面",
-    "heroSubtitle": "为您的项目寻找完美的石材",
-    "browseStones": "浏览石材",
-    "chatWithAI": "与AI聊天"
+    "tagline": "优质天然石材",
+    "heroTitle": "自然之作，",
+    "heroTitleHighlight": "为您而生",
+    "heroSubtitle": "探索我们精选的优质大理石、花岗岩和石英石系列。每一块石材都诉说着数百万年的故事。",
+    "exploreCollection": "浏览系列",
+    "signIn": "登录",
+    "scroll": "下滑",
+    "featuredTitle": "我们的系列",
+    "featuredHeading": "精选石材",
+    "viewAll": "查看全部系列",
+    "perSlab": "/ 块",
+    "whyChooseUs": "为什么选择我们",
+    "excellenceTitle": "每一块都追求卓越",
+    "premiumQuality": "优质品质",
+    "premiumQualityDesc": "精选来自世界顶级矿场的石材。每块石板都经过品质、色彩一致性和结构完整性的严格检验。",
+    "smartRecommendations": "智能推荐",
+    "smartRecommendationsDesc": "我们的AI助手帮助您找到最适合项目的石材，匹配您的风格偏好和预算需求。",
+    "instantPricing": "即时报价",
+    "instantPricingDesc": "使用内置计算器即时获取准确的成本估算。考虑尺寸、边缘造型和安装费用，实现透明定价。",
+    "ctaTitle": "准备好改造您的空间了吗？",
+    "ctaSubtitle": "浏览我们丰富的系列或与AI助手交流，找到最适合您项目的石材。",
+    "chatWithAI": "与AI助手对话",
+    "getQuote": "获取报价",
+    "imageDisclaimer": "图片仅供参考，请以实物为准。"
   },
   "browse": {
     "title": "浏览我们的石材系列",
@@ -52,7 +78,12 @@
     "pin": "输入6位PIN码",
     "registerSuccess": "注册成功！",
     "pinSent": "您的PIN码已发送到邮箱",
-    "loginError": "邮箱或PIN码无效"
+    "loginError": "邮箱或PIN码无效",
+    "merchantLogin": "商户登录",
+    "customerLogin": "客户登录",
+    "password": "密码",
+    "merchantDesc": "访问您的店铺管理后台",
+    "customerDesc": "浏览石材并管理您的订单"
   },
   "account": {
     "title": "我的账户",
@@ -76,12 +107,19 @@
     "orderNumber": "您的请求 #{orderId} 已收到"
   },
   "chat": {
-    "title": "AI石材助手",
-    "welcome": "您好！我是您的AI石材助手",
-    "welcomeMessage": "我可以帮您找到适合项目的完美石材",
-    "placeholder": "询问我关于石材的问题...",
+    "title": "AI石材顾问",
+    "welcome": "欢迎使用您的私人石材顾问",
+    "welcomeMessage": "我在这里帮助您为项目找到完美的天然石材。无论您是在翻新厨房、设计浴室还是规划商业空间——我都会引导您浏览我们的系列。",
+    "placeholder": "描述您的项目或询问我们的石材...",
     "uploadImage": "上传照片获取个性化推荐",
-    "getQuote": "获取此石材报价"
+    "getQuote": "获取此石材报价",
+    "suggestion1": "什么石材最适合厨房台面？",
+    "suggestion2": "我需要带灰色纹理的白色大理石",
+    "suggestion3": "展示适合浴室的经济实惠选项",
+    "suggestion4": "石英石和花岗岩有什么区别？",
+    "tipUpload": "提示：上传您空间的照片，获取个性化石材推荐",
+    "backToBrowse": "返回浏览",
+    "aiThinking": "思考中..."
   },
   "calculator": {
     "title": "价格计算器",
@@ -101,6 +139,21 @@
     "sinkCutoutCost": "水槽开口",
     "backsplashCost": "挡水板",
     "disclaimer": "这只是估价。最终价格取决于实际测量。"
+  },
+  "threeDGen": {
+    "title": "3D场景生成器",
+    "subtitle": "使用前沿AI技术将您的2D照片转化为沉浸式3D场景",
+    "uploadTitle": "上传您的空间",
+    "uploadDesc": "上传您的厨房、浴室或任何空间的照片，生成交互式3D场景",
+    "selectPhoto": "选择照片",
+    "dragDrop": "或拖放文件",
+    "supportedFormats": "支持 JPG、PNG、WebP（最大10MB）",
+    "generate": "生成3D场景",
+    "generating": "正在生成3D场景...这可能需要最多5分钟",
+    "viewScene": "查看3D场景",
+    "recentScenes": "最近的3D场景",
+    "noScenes": "尚未生成3D场景",
+    "featureDisabled": "此商店暂不提供3D场景生成功能"
   },
   "order": {
     "status": {
@@ -123,6 +176,8 @@
     "email": "邮箱",
     "address": "地址",
     "quickLinks": "快速链接",
-    "copyright": "版权所有"
+    "copyright": "版权所有",
+    "description": "为住宅和商业项目提供优质天然石材表面。探索由大自然精心打造的大理石、花岗岩和石英石之美。",
+    "poweredBy": "技术支持"
   }
 }

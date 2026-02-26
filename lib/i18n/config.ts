@@ -15,6 +15,7 @@ export const pathnames: Pathnames<typeof locales> = {
   '/account': '/account',
   '/account/orders': '/account/orders',
   '/account/new-quote': '/account/new-quote',
+  '/3d-gen': '/3d-gen',
 };
 
 export const localePrefix: LocalePrefix<typeof locales> = 'always';

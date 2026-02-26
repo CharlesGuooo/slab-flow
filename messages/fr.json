@@ -2,29 +2,55 @@
   "common": {
     "siteName": "SlabFlow",
     "loading": "Chargement...",
-    "error": "Une erreur s'est produite",
+    "error": "Une erreur est survenue",
     "submit": "Soumettre",
     "cancel": "Annuler",
     "save": "Enregistrer",
     "delete": "Supprimer",
     "edit": "Modifier",
     "back": "Retour",
-    "continue": "Continuer"
+    "continue": "Continuer",
+    "loginRequired": "Veuillez vous connecter pour accéder à cette fonctionnalité",
+    "loginRequiredDesc": "Vous avez besoin d'un compte pour utiliser cette fonctionnalité. Connectez-vous ou créez un compte gratuit pour commencer.",
+    "signInNow": "Se connecter",
+    "createAccount": "Créer un compte"
   },
   "nav": {
+    "home": "Accueil",
     "browse": "Parcourir les pierres",
     "chat": "Assistant IA",
     "calculator": "Calculateur",
+    "threeDGen": "Scène 3D",
     "account": "Mon compte",
     "login": "Connexion",
     "register": "S'inscrire",
-    "logout": "Se déconnecter"
+    "logout": "Déconnexion"
   },
   "home": {
-    "heroTitle": "Surfaces en pierre de qualité supérieure",
-    "heroSubtitle": "Trouvez la pierre parfaite pour votre projet",
-    "browseStones": "Parcourir les pierres",
-    "chatWithAI": "Discuter avec l'IA"
+    "tagline": "Pierre naturelle premium",
+    "heroTitle": "Façonnée par la nature,",
+    "heroTitleHighlight": "Perfectionnée pour vous",
+    "heroSubtitle": "Découvrez notre collection de surfaces en marbre, granit et quartz de qualité supérieure. Chaque pièce raconte une histoire de millions d'années.",
+    "exploreCollection": "Explorer la collection",
+    "signIn": "Connexion",
+    "scroll": "Défiler",
+    "featuredTitle": "Notre collection",
+    "featuredHeading": "Pierres en vedette",
+    "viewAll": "Voir toute la collection",
+    "perSlab": "/ dalle",
+    "whyChooseUs": "Pourquoi nous choisir",
+    "excellenceTitle": "L'excellence dans chaque dalle",
+    "premiumQuality": "Qualité premium",
+    "premiumQualityDesc": "Pierres sélectionnées à la main dans les meilleures carrières du monde. Chaque dalle est inspectée pour la qualité, la cohérence des couleurs et l'intégrité structurelle.",
+    "smartRecommendations": "Recommandations intelligentes",
+    "smartRecommendationsDesc": "Notre assistant IA vous aide à trouver la pierre parfaite pour votre projet, en tenant compte de vos préférences de style et de votre budget.",
+    "instantPricing": "Tarification instantanée",
+    "instantPricingDesc": "Obtenez des estimations de coûts précises instantanément avec notre calculateur intégré.",
+    "ctaTitle": "Prêt à transformer votre espace ?",
+    "ctaSubtitle": "Parcourez notre vaste collection ou parlez à notre assistant IA pour trouver la pierre parfaite.",
+    "chatWithAI": "Discuter avec l'assistant IA",
+    "getQuote": "Obtenir un devis",
+    "imageDisclaimer": "Les images sont fournies à titre indicatif. Veuillez vous référer au produit réel."
   },
   "browse": {
     "title": "Parcourir notre collection de pierres",
@@ -33,7 +59,7 @@
     "allTypes": "Tous les types",
     "noResults": "Aucune pierre trouvée",
     "requestQuote": "Demander un devis",
-    "chatAboutStone": "Demander à l'IA sur cette pierre"
+    "chatAboutStone": "Demander à l'IA à propos de cette pierre"
   },
   "stone": {
     "brand": "Marque",
@@ -41,18 +67,23 @@
     "type": "Type de pierre",
     "pricePerSlab": "Prix par dalle",
     "description": "Description",
-    "imageDisclaimer": "Remarque : Les images sont fournies à titre indicatif. L'apparence réelle de la pierre peut varier."
+    "imageDisclaimer": "Remarque : Les images sont à titre indicatif. L'apparence réelle de la pierre peut varier."
   },
   "auth": {
     "registerTitle": "Créer un compte",
-    "loginTitle": "Se connecter",
+    "loginTitle": "Connexion",
     "username": "Nom d'utilisateur",
     "email": "E-mail",
     "phone": "Téléphone (optionnel)",
     "pin": "Entrez votre code PIN à 6 chiffres",
     "registerSuccess": "Inscription réussie !",
     "pinSent": "Votre code PIN a été envoyé à votre e-mail",
-    "loginError": "E-mail ou code PIN invalide"
+    "loginError": "E-mail ou PIN invalide",
+    "merchantLogin": "Connexion marchand",
+    "customerLogin": "Connexion client",
+    "password": "Mot de passe",
+    "merchantDesc": "Accédez à votre tableau de bord de gestion",
+    "customerDesc": "Parcourez les pierres et gérez vos commandes"
   },
   "account": {
     "title": "Mon compte",
@@ -60,7 +91,7 @@
     "orders": "Mes commandes",
     "aiCredits": "Crédits IA",
     "newQuote": "Nouvelle demande de devis",
-    "noOrders": "Aucune commande pour l'instant"
+    "noOrders": "Pas encore de commandes"
   },
   "quote": {
     "title": "Demander un devis",
@@ -70,18 +101,25 @@
     "timeline": "Délai souhaité",
     "budget": "Budget (optionnel)",
     "contractor": "Je suis entrepreneur/designer",
-    "notes": "Remarques supplémentaires",
+    "notes": "Notes supplémentaires",
     "submit": "Soumettre la demande de devis",
     "success": "Demande de devis soumise !",
     "orderNumber": "Votre demande #{orderId} a été reçue"
   },
   "chat": {
-    "title": "Assistant IA Pierre",
-    "welcome": "Bonjour ! Je suis votre assistant IA Pierre",
-    "welcomeMessage": "Je peux vous aider à trouver la pierre parfaite pour votre projet",
-    "placeholder": "Posez-moi des questions sur les options de pierre...",
+    "title": "Consultant IA en pierre",
+    "welcome": "Bienvenue chez votre consultant personnel en pierre",
+    "welcomeMessage": "Je suis là pour vous aider à découvrir la pierre naturelle parfaite pour votre projet.",
+    "placeholder": "Décrivez votre projet ou posez des questions sur nos pierres...",
     "uploadImage": "Téléchargez une photo pour des recommandations personnalisées",
-    "getQuote": "Obtenir un devis pour cette pierre"
+    "getQuote": "Obtenir un devis pour cette pierre",
+    "suggestion1": "Quelle pierre est la meilleure pour les comptoirs de cuisine ?",
+    "suggestion2": "J'ai besoin d'un marbre blanc avec des veines grises",
+    "suggestion3": "Montrez-moi des options économiques pour la salle de bain",
+    "suggestion4": "Quelle est la différence entre le quartz et le granit ?",
+    "tipUpload": "Astuce : Téléchargez une photo de votre espace pour des recommandations personnalisées",
+    "backToBrowse": "Retour à la navigation",
+    "aiThinking": "Réflexion..."
   },
   "calculator": {
     "title": "Calculateur de prix",
@@ -91,21 +129,36 @@
     "edgeProfile": "Profil de bord",
     "standardEdge": "Bord standard",
     "fancyEdge": "Bord fantaisie",
-    "sinkCutouts": "Nombre de découpages d'évier",
-    "backsplash": "Inclure un dosseret de 4\"",
+    "sinkCutouts": "Nombre de découpes d'évier",
+    "backsplash": "Inclure dosseret de 4\"",
     "calculate": "Calculer le prix",
     "estimate": "Estimation",
     "totalEstimate": "Estimation totale",
     "stoneSlabs": "Dalles de pierre",
     "edgeProfileCost": "Profil de bord",
-    "sinkCutoutCost": "Découpages d'évier",
+    "sinkCutoutCost": "Découpes d'évier",
     "backsplashCost": "Dosseret",
-    "disclaimer": "Ceci est une estimation seulement. Le prix final dépend des mesures réelles."
+    "disclaimer": "Ceci est une estimation uniquement. Le prix final dépend des mesures réelles."
+  },
+  "threeDGen": {
+    "title": "Générateur de scène 3D",
+    "subtitle": "Transformez vos photos 2D en scènes 3D immersives grâce à la technologie IA de pointe",
+    "uploadTitle": "Téléchargez votre espace",
+    "uploadDesc": "Téléchargez une photo de votre cuisine, salle de bain ou tout autre espace pour générer une scène 3D interactive",
+    "selectPhoto": "Sélectionner une photo",
+    "dragDrop": "ou glisser-déposer",
+    "supportedFormats": "Prend en charge JPG, PNG, WebP (max 10 Mo)",
+    "generate": "Générer la scène 3D",
+    "generating": "Génération de la scène 3D... Cela peut prendre jusqu'à 5 minutes",
+    "viewScene": "Voir la scène 3D",
+    "recentScenes": "Scènes 3D récentes",
+    "noScenes": "Aucune scène 3D générée pour le moment",
+    "featureDisabled": "La génération de scènes 3D n'est pas disponible pour ce magasin"
   },
   "order": {
     "status": {
-      "pending_quote": "En attente de devis",
-      "quoted": "Devisé",
+      "pending_quote": "Devis en attente",
+      "quoted": "Devis envoyé",
       "in_progress": "En cours",
       "completed": "Terminé",
       "cancelled": "Annulé"
@@ -123,6 +176,8 @@
     "email": "E-mail",
     "address": "Adresse",
     "quickLinks": "Liens rapides",
-    "copyright": "Tous droits réservés"
+    "copyright": "Tous droits réservés",
+    "description": "Surfaces en pierre naturelle premium pour les projets résidentiels et commerciaux.",
+    "poweredBy": "Propulsé par"
   }
 }
