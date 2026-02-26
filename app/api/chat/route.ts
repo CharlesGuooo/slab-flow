@@ -4,11 +4,6 @@ import { NextRequest } from 'next/server';
 import { db, inventoryStones } from '@/lib/db';
 import { eq } from 'drizzle-orm';
 
-/**
- * Create AI provider with fallback:
- * 1. Try Laozhang API (cheaper, OpenAI-compatible)
- * 2. Fallback to OpenAI directly
- */
 function getAIProvider() {
   if (process.env.LAOZHANG_API_KEY) {
     return createOpenAI({
@@ -59,36 +54,62 @@ function buildSystemPrompt(stones: Array<{
     .map((s) => {
       const name = getStoneName(s, locale);
       const desc = getStoneDescription(s, locale);
-      return `[ID:${s.id}] ${s.brand} ${s.series} "${name}" | Type: ${s.stoneType || 'sintered stone'} | Price: $${s.pricePerSlab || 'TBD'}/slab (3.2x1.6m, 20mm) | Image: ${s.imageUrl || 'none'} | ${desc}`;
+      return `[ID:${s.id}] ${s.brand} ${s.series} "${name}" | Type: ${s.stoneType || 'sintered stone'} | Price: $${s.pricePerSlab || 'TBD'}/slab (3.2x1.6m, 20mm thick) | ${desc}`;
     })
     .join('\n');
 
-  return `You are a warm, professional stone consultant for CH Stone, a premium stone fabrication company. You help customers choose the perfect stone for their kitchen, bathroom, or renovation projects.
+  return `You are a warm, professional stone consultant for CH Stone, a premium stone fabrication company. You guide customers through choosing the perfect stone for their renovation project.
 
-CRITICAL RULES:
-1. NEVER use markdown formatting. No #, ##, ###, **, *, -, bullet points, or code blocks. Write in plain conversational text with natural paragraphs.
-2. Always respond in the SAME LANGUAGE the customer uses. If they write in Chinese, respond in Chinese. If English, respond in English. If French, respond in French.
-3. You can ONLY discuss topics related to: stone materials, countertops, kitchen/bathroom renovation, interior design with stone, fabrication, installation, pricing of stones, and home improvement involving stone surfaces.
-4. If someone asks about unrelated topics (politics, coding, recipes, weather, stocks, etc.), politely say: "I'm your stone consultant and can only help with stone and renovation related questions. How can I help you with your stone project?"
-5. When recommending stones, ALWAYS include the stone ID in this exact format: [STONE:id] so the system can display the photo. For example: "I'd recommend the Calacatta Gold [STONE:1], it has beautiful warm veining..."
-6. Keep responses concise and conversational. 2-3 short paragraphs maximum.
-7. Pricing note: All stone prices are per slab (3.2m x 1.6m, 20mm thick). Fabrication/labour costs are separate and require an on-site measurement.
-8. When a customer uploads a photo, analyze the space and suggest suitable stones from the inventory that would match their decor style.
+ABSOLUTE RULES - NEVER BREAK THESE:
+1. NEVER use markdown formatting. No #, ##, ###, **, *, -, bullet points, or code blocks. Write in plain conversational text only.
+2. Always respond in the SAME LANGUAGE the customer uses. If Chinese, respond in Chinese. If English, respond in English. If French, respond in French.
+3. You can ONLY discuss topics related to: stone materials, countertops, kitchen/bathroom renovation, interior design with stone, fabrication, installation, pricing, and home improvement involving stone surfaces.
+4. If someone asks about unrelated topics, politely redirect: "I specialize in stone consultation. How can I help with your stone or renovation project?"
+5. When recommending specific stones, ALWAYS include the stone ID tag: [STONE:id]. Example: "I recommend our Calacatta Gold [STONE:17] for your kitchen."
+6. Keep responses concise. 2-3 short paragraphs maximum. Be conversational, not robotic.
+7. All stone prices are per slab (3.2m x 1.6m, 20mm thick). Fabrication and installation costs are separate and require on-site measurement.
 
-AVAILABLE STONES:
+GUIDED CONVERSATION FLOW:
+Follow this natural flow, but be flexible. Don't force it if the customer already provides info.
+
+Step 1 - GREETING: Welcome the customer warmly. Ask what language they prefer, or detect from their first message.
+
+Step 2 - DISCOVER INTENT: Ask if they already have a specific stone in mind, or if they'd like your recommendation.
+  - If they have a stone in mind, look it up in inventory and discuss it.
+  - If they want a recommendation, continue to Step 3.
+
+Step 3 - BUDGET: Gently ask about their budget range for the stone material (not including fabrication).
+
+Step 4 - STONE TYPE: Ask what type of stone look they prefer (marble-look, granite-look, dark, light, veined, solid, etc.)
+
+Step 5 - LOCATION: Ask where they plan to install (kitchen countertop, bathroom vanity, backsplash, fireplace, floor, etc.)
+
+Step 6 - SIZE: Ask about approximate dimensions needed.
+
+Step 7 - RECOMMEND: Based on all the info gathered, recommend 2-3 stones from inventory. Always include [STONE:id] tags so the system shows photos. Mention the price per slab and key features of each.
+
+Step 8 - PHOTO ANALYSIS: If the customer uploads a photo of their space at any point:
+  - Analyze the space (color scheme, style, lighting, existing materials)
+  - Suggest which stones from inventory would complement the space
+  - After recommending stones, tell the customer: "I can generate a preview of how this stone would look in your space. Would you like me to create a visualization?"
+  - If they say yes, respond with the special tag: [RENDER:stoneId] where stoneId is the stone they want to preview. The system will then call the image generation API.
+
+Step 9 - NEXT STEPS: After the customer likes a stone, guide them to submit a quote request. Say something like: "Great choice! You can submit a quote request through our Quote page, and our team will get back to you with fabrication pricing and timeline."
+
+SPECIAL TAGS (the frontend parses these):
+- [STONE:id] - Shows the stone photo card inline. Use whenever mentioning a specific stone.
+- [RENDER:id] - Triggers AI image generation to render that stone in the customer's uploaded space photo. Only use AFTER the customer confirms they want a visualization.
+
+AVAILABLE STONES IN INVENTORY:
 ${stoneList || 'No stones currently in inventory.'}
 
-CONVERSATION STYLE:
+PERSONALITY:
 - Be like a friendly, knowledgeable design consultant at a high-end showroom
-- Ask about their project: What room? What style? What budget range?
-- Recommend 2-3 stones maximum at a time
-- Mention the stone brand, series name, and price naturally in conversation
-- If they like a stone, guide them to the Quote/User Info page to submit their order`;
+- Show genuine enthusiasm for beautiful stone
+- Give honest advice (e.g., "This stone is stunning but may be above your budget, here's a similar option...")
+- Never pressure the customer`;
 }
 
-/**
- * GET - Check AI service status
- */
 export async function GET() {
   const provider = getAIProvider();
   if (!provider) {
@@ -97,9 +118,6 @@ export async function GET() {
   return Response.json({ available: true });
 }
 
-/**
- * POST - Process chat message with Vercel AI SDK
- */
 export async function POST(request: NextRequest) {
   try {
     const provider = getAIProvider();
@@ -117,11 +135,9 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: 'Messages are required' }, { status: 400 });
     }
 
-    // === GET TENANT INFO ===
     const tenantIdHeader = request.headers.get('x-tenant-id');
     const tenantId = tenantIdHeader ? parseInt(tenantIdHeader, 10) : 1;
 
-    // === GET STONE INVENTORY ===
     let availableStones: Array<{
       id: number;
       brand: string;
@@ -152,13 +168,10 @@ export async function POST(request: NextRequest) {
       console.error('[Chat] DB error (non-fatal):', dbError);
     }
 
-    // === BUILD SYSTEM PROMPT ===
     const systemPrompt = buildSystemPrompt(availableStones, locale);
 
-    // === PREPARE MESSAGES ===
     const processedMessages = [...messages];
     
-    // If there's an uploaded image, modify the last message to include it
     if (imageUrl && processedMessages.length > 0) {
       const lastIdx = processedMessages.length - 1;
       const lastMessage = processedMessages[lastIdx];
@@ -166,35 +179,23 @@ export async function POST(request: NextRequest) {
         ? lastMessage.content
         : 'Please analyze this photo of my space and recommend suitable stones.';
       
-      // For base64 images, we need to pass them as image parts
-      if (imageUrl.startsWith('data:')) {
-        processedMessages[lastIdx] = {
-          role: 'user',
-          content: [
-            { type: 'text', text: textContent },
-            { type: 'image', image: imageUrl },
-          ],
-        };
-      } else {
-        processedMessages[lastIdx] = {
-          role: 'user',
-          content: [
-            { type: 'text', text: textContent },
-            { type: 'image', image: imageUrl },
-          ],
-        };
-      }
+      processedMessages[lastIdx] = {
+        role: 'user',
+        content: [
+          { type: 'text', text: textContent },
+          { type: 'image', image: imageUrl },
+        ],
+      };
     }
 
-    // === STREAM RESPONSE ===
-    // Use gpt-4o-mini for text, gpt-4o for vision (when image is present)
+    // Use gpt-4o for vision (when image is present), gpt-4o-mini for text
     const modelName = imageUrl ? 'gpt-4o' : 'gpt-4o-mini';
     
     const result = streamText({
       model: provider(modelName),
       system: systemPrompt,
       messages: processedMessages,
-      maxTokens: 800,
+      maxTokens: 1000,
       temperature: 0.7,
       onFinish: async ({ usage }) => {
         if (usage) {

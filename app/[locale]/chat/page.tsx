@@ -27,8 +27,12 @@ export default function ChatPage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadedImagePreview, setUploadedImagePreview] = useState<string | null>(null);
+  const [customerSpaceImage, setCustomerSpaceImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [stoneMap, setStoneMap] = useState<Record<number, StoneInfo>>({});
+  const [generatingImages, setGeneratingImages] = useState<Record<string, boolean>>({});
+  const [generatedImages, setGeneratedImages] = useState<Record<string, string>>({});
+  const [generationErrors, setGenerationErrors] = useState<Record<string, string>>({});
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -44,6 +48,10 @@ export default function ChatPage() {
     api: '/api/chat',
     body: { imageUrl: uploadedImage, locale },
     onFinish: () => {
+      // Keep customerSpaceImage for future renders, but clear the upload state
+      if (uploadedImage) {
+        setCustomerSpaceImage(uploadedImage);
+      }
       setUploadedImage(null);
       setUploadedImagePreview(null);
     },
@@ -62,7 +70,7 @@ export default function ChatPage() {
     checkAuth();
   }, []);
 
-  // Load stone data for displaying photos
+  // Load stone data
   useEffect(() => {
     const loadStones = async () => {
       try {
@@ -82,10 +90,11 @@ export default function ChatPage() {
     loadStones();
   }, []);
 
-  // Scroll to bottom of chat container (not page)
+  // Scroll to bottom of chat container only
   const scrollToBottom = useCallback(() => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      const container = chatContainerRef.current;
+      container.scrollTop = container.scrollHeight;
     }
   }, []);
 
@@ -93,13 +102,72 @@ export default function ChatPage() {
     scrollToBottom();
   }, [messages, isLoading, scrollToBottom]);
 
+  // Handle image generation when [RENDER:id] tag is detected
+  const handleRenderStone = useCallback(async (stoneId: number, messageId: string) => {
+    const renderKey = `${messageId}-${stoneId}`;
+    if (generatingImages[renderKey] || generatedImages[renderKey]) return;
+
+    setGeneratingImages(prev => ({ ...prev, [renderKey]: true }));
+    setGenerationErrors(prev => {
+      const next = { ...prev };
+      delete next[renderKey];
+      return next;
+    });
+
+    try {
+      const stone = stoneMap[stoneId];
+      if (!stone) throw new Error('Stone not found');
+
+      const prompt = customerSpaceImage
+        ? `Take this photo of a real interior space and realistically render/replace the countertop or stone surface area with the "${stone.name}" stone material. The stone has the following appearance: ${stone.brand} ${stone.series}, a premium sintered stone slab. Make the rendering look photorealistic, maintaining the original room's lighting, perspective, and shadows. Only change the stone/countertop surface, keep everything else in the room exactly the same.`
+        : `Generate a photorealistic interior design visualization of a modern kitchen with beautiful "${stone.name}" (${stone.brand} ${stone.series}) stone countertops. The stone should be the focal point. Show a luxurious, well-lit kitchen with the stone material prominently displayed on the countertops. Professional interior design photography style.`;
+
+      const response = await fetch('/api/generate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          referenceImageBase64: customerSpaceImage || undefined,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Generation failed');
+
+      setGeneratedImages(prev => ({ ...prev, [renderKey]: data.imageUrl }));
+    } catch (err) {
+      console.error('Image generation error:', err);
+      setGenerationErrors(prev => ({
+        ...prev,
+        [renderKey]: err instanceof Error ? err.message : 'Failed to generate image',
+      }));
+    } finally {
+      setGeneratingImages(prev => ({ ...prev, [renderKey]: false }));
+    }
+  }, [customerSpaceImage, stoneMap, generatingImages, generatedImages]);
+
+  // Auto-trigger renders when new messages contain [RENDER:id]
+  useEffect(() => {
+    for (const message of messages) {
+      if (message.role !== 'assistant') continue;
+      const renderRegex = /\[RENDER:(\d+)\]/g;
+      let match;
+      while ((match = renderRegex.exec(message.content)) !== null) {
+        const stoneId = parseInt(match[1], 10);
+        const renderKey = `${message.id}-${stoneId}`;
+        if (!generatingImages[renderKey] && !generatedImages[renderKey] && !generationErrors[renderKey]) {
+          handleRenderStone(stoneId, message.id);
+        }
+      }
+    }
+  }, [messages, handleRenderStone, generatingImages, generatedImages, generationErrors]);
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) { alert('Please upload an image file'); return; }
     if (file.size > 10 * 1024 * 1024) { alert('Image must be less than 10MB'); return; }
     
-    // Show preview immediately
     const reader = new FileReader();
     reader.onload = (ev) => {
       setUploadedImagePreview(ev.target?.result as string);
@@ -144,15 +212,20 @@ export default function ChatPage() {
     inputRef.current?.focus();
   };
 
-  // Parse [STONE:id] tags in message content and render stone cards
-  const renderMessageContent = (content: string) => {
+  // Parse message content for [STONE:id] and [RENDER:id] tags
+  const renderMessageContent = (content: string, messageId: string) => {
     const parts: React.ReactNode[] = [];
-    const regex = /\[STONE:(\d+)\]/g;
+    // Match both [STONE:id] and [RENDER:id]
+    const regex = /\[(?:STONE|RENDER):(\d+)\]/g;
     let lastIndex = 0;
     let match;
+    const renderedStones = new Set<number>();
 
     while ((match = regex.exec(content)) !== null) {
-      // Add text before the match
+      const fullMatch = match[0];
+      const stoneId = parseInt(match[1], 10);
+      const isRender = fullMatch.startsWith('[RENDER:');
+
       if (match.index > lastIndex) {
         parts.push(
           <span key={`text-${lastIndex}`}>
@@ -161,34 +234,86 @@ export default function ChatPage() {
         );
       }
 
-      const stoneId = parseInt(match[1], 10);
       const stone = stoneMap[stoneId];
 
-      if (stone) {
-        parts.push(
-          <div key={`stone-${stoneId}-${match.index}`} className="my-3 bg-white rounded-lg border border-stone-200 overflow-hidden inline-block max-w-[280px] align-top">
-            <div className="relative w-[280px] h-[180px]">
-              <Image
-                src={stone.imageUrl}
-                alt={stone.name}
-                fill
-                className="object-cover"
-                unoptimized
-              />
+      if (stone && !isRender) {
+        // Only show stone card once per stone per message
+        if (!renderedStones.has(stoneId)) {
+          renderedStones.add(stoneId);
+          parts.push(
+            <div key={`stone-${stoneId}-${match.index}`} className="my-3 bg-white rounded-lg border border-stone-200 overflow-hidden inline-block max-w-[280px] align-top shadow-sm">
+              <div className="relative w-[280px] h-[180px]">
+                <Image
+                  src={stone.imageUrl}
+                  alt={stone.name}
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/40 to-transparent p-2">
+                  <p className="text-[9px] text-white/70">Images are for reference only. Please refer to the actual product.</p>
+                </div>
+              </div>
+              <div className="p-3">
+                <p className="text-sm font-semibold text-stone-900">{stone.name}</p>
+                <p className="text-xs text-stone-500">{stone.brand} - {stone.series}</p>
+                <p className="text-xs text-amber-700 font-medium mt-1">${stone.price}/slab</p>
+              </div>
             </div>
-            <div className="p-3">
-              <p className="text-sm font-semibold text-stone-900">{stone.name}</p>
-              <p className="text-xs text-stone-500">{stone.brand} - {stone.series}</p>
-              <p className="text-xs text-amber-700 font-medium mt-1">${stone.price}/slab</p>
+          );
+        }
+      } else if (isRender) {
+        // Show render result or loading state
+        const renderKey = `${messageId}-${stoneId}`;
+        const isGenerating = generatingImages[renderKey];
+        const generatedUrl = generatedImages[renderKey];
+        const genError = generationErrors[renderKey];
+
+        if (generatedUrl) {
+          parts.push(
+            <div key={`render-${renderKey}`} className="my-3 rounded-lg overflow-hidden border border-amber-200 shadow-md max-w-[400px]">
+              <div className="bg-amber-50 px-3 py-1.5 flex items-center gap-2">
+                <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className="text-xs font-medium text-amber-800">AI Visualization - {stone?.name || `Stone #${stoneId}`}</span>
+              </div>
+              <img src={generatedUrl} alt={`Rendered ${stone?.name || 'stone'} in space`} className="w-full" />
+              <div className="px-3 py-1.5 bg-amber-50">
+                <p className="text-[9px] text-amber-600">AI-generated preview. Actual appearance may vary.</p>
+              </div>
             </div>
-          </div>
-        );
+          );
+        } else if (isGenerating) {
+          parts.push(
+            <div key={`render-loading-${renderKey}`} className="my-3 rounded-lg border border-amber-200 p-6 max-w-[400px] bg-amber-50/50">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-10 h-10 border-2 border-amber-300 border-t-amber-600 rounded-full animate-spin" />
+                <div className="text-center">
+                  <p className="text-sm font-medium text-stone-800">Generating visualization...</p>
+                  <p className="text-xs text-stone-500 mt-1">Rendering {stone?.name || 'stone'} in your space (~10s)</p>
+                </div>
+              </div>
+            </div>
+          );
+        } else if (genError) {
+          parts.push(
+            <div key={`render-error-${renderKey}`} className="my-3 rounded-lg border border-red-200 p-4 max-w-[400px] bg-red-50">
+              <p className="text-sm text-red-700">Could not generate visualization: {genError}</p>
+              <button
+                onClick={() => handleRenderStone(stoneId, messageId)}
+                className="mt-2 text-xs text-amber-700 underline hover:text-amber-900"
+              >
+                Try again
+              </button>
+            </div>
+          );
+        }
       }
 
       lastIndex = match.index + match[0].length;
     }
 
-    // Add remaining text
     if (lastIndex < content.length) {
       parts.push(
         <span key={`text-${lastIndex}`}>
@@ -263,9 +388,9 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* Chat Container - fixed height, internal scroll */}
+      {/* Chat Container */}
       <div className="bg-white rounded-xl border border-stone-100 shadow-sm flex flex-col" style={{ height: 'calc(100% - 52px)' }}>
-        {/* Messages Area - scrolls internally */}
+        {/* Messages Area */}
         <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-6 space-y-4">
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center px-4">
@@ -282,12 +407,20 @@ export default function ChatPage() {
                   <button
                     key={index}
                     onClick={() => handleSuggestionClick(question)}
-                    className="text-left px-4 py-3 bg-[#faf8f5] hover:bg-[#f5f0ea] border border-stone-100 rounded-lg text-sm text-stone-700 transition-all hover:border-amber-200 group"
+                    className="text-left px-4 py-3 bg-[#faf8f5] hover:bg-[#f5f0ea] border border-stone-100 rounded-lg text-sm text-stone-700 transition-all group"
                   >
                     <span className="text-amber-700 mr-2 group-hover:mr-3 transition-all">&rarr;</span>
                     {question}
                   </button>
                 ))}
+              </div>
+
+              {/* Upload hint */}
+              <div className="mt-8 flex items-center gap-2 text-xs text-stone-400">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span>{t('tipUpload')}</span>
               </div>
             </div>
           ) : (
@@ -301,14 +434,14 @@ export default function ChatPage() {
                       </svg>
                     </div>
                   )}
-                  <div className={`max-w-[75%] rounded-xl px-4 py-3 ${
+                  <div className={`max-w-[80%] rounded-xl px-4 py-3 ${
                     message.role === 'user'
                       ? 'bg-stone-900 text-white'
                       : 'bg-[#faf8f5] text-stone-800 border border-stone-100'
                   }`}>
                     <div className="text-sm leading-relaxed whitespace-pre-wrap">
                       {message.role === 'assistant'
-                        ? renderMessageContent(message.content)
+                        ? renderMessageContent(message.content, message.id)
                         : message.content
                       }
                     </div>
@@ -347,7 +480,6 @@ export default function ChatPage() {
                 </div>
               )}
 
-              {/* Error */}
               {error && (
                 <div className="bg-red-50 border border-red-100 rounded-lg px-4 py-3 text-sm text-red-600">
                   {error.message}
@@ -357,9 +489,21 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* Input Area - fixed at bottom of chat container */}
+        {/* Customer space image indicator */}
+        {customerSpaceImage && !uploadedImagePreview && (
+          <div className="mx-4 mb-2 flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
+            <svg className="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="text-xs text-green-700">Space photo saved for AI visualization</span>
+            <button onClick={() => setCustomerSpaceImage(null)} className="ml-auto text-xs text-green-500 hover:text-red-500">
+              Clear
+            </button>
+          </div>
+        )}
+
+        {/* Input Area */}
         <div className="border-t border-stone-100 p-4 bg-white rounded-b-xl">
-          {/* Image preview */}
           {uploadedImagePreview && (
             <div className="mb-3 relative inline-block">
               <img src={uploadedImagePreview} alt="Preview" className="w-[120px] h-[80px] object-cover rounded-lg border border-stone-200" />
