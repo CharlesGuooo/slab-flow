@@ -46,3 +46,4 @@ next-env.d.ts
 # Database files (SQLite)
 *.db
 *.db-journal
+.env.local

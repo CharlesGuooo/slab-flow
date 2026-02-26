@@ -1,27 +1,32 @@
-import { drizzle } from 'drizzle-orm/libsql';
+/**
+ * Initialize Turso database - create tables and seed basic data
+ * Run with: npx tsx scripts/init-turso.ts
+ */
 import { createClient } from '@libsql/client';
-import * as schema from '../drizzle/schema-sqlite';
-import { eq, and, sql as drizzleSql } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
 
-// Create Turso/LibSQL client
-const client = createClient({
-  url: process.env.TURSO_DATABASE_URL || 'file:slabflow-local.db',
-  authToken: process.env.TURSO_AUTH_TOKEN,
-});
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
-export const db = drizzle(client, { schema });
+const url = process.env.TURSO_DATABASE_URL;
+const authToken = process.env.TURSO_AUTH_TOKEN;
 
-// Re-export schema for convenience
-export * from '../drizzle/schema-sqlite';
+if (!url || !authToken) {
+  console.error('❌ Missing TURSO_DATABASE_URL or TURSO_AUTH_TOKEN in .env.local');
+  process.exit(1);
+}
 
-// Initialize database with tables and seed data
-export async function initializeLocalDatabase() {
-  console.log('Initializing database...');
+console.log(`Connecting to: ${url}`);
 
-  // Create tables using raw SQL via the libsql client
-  await client.executeMultiple(`
-    CREATE TABLE IF NOT EXISTS tenants (
+const db = createClient({ url, authToken });
+
+async function init() {
+  console.log('📋 Creating tables...\n');
+
+  // Create tables one by one (executeMultiple may not work well with Turso)
+  const tables = [
+    `CREATE TABLE IF NOT EXISTS tenants (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       domain TEXT NOT NULL UNIQUE,
@@ -38,18 +43,16 @@ export async function initializeLocalDatabase() {
       ai_system_prompt TEXT,
       ai_monthly_budget TEXT DEFAULT '50.00',
       created_at TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS admins (
+    )`,
+    `CREATE TABLE IF NOT EXISTS admins (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tenant_id INTEGER REFERENCES tenants(id),
       role TEXT DEFAULT 'tenant_admin' NOT NULL,
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS users (
+    )`,
+    `CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tenant_id INTEGER REFERENCES tenants(id) NOT NULL,
       username TEXT NOT NULL,
@@ -58,9 +61,8 @@ export async function initializeLocalDatabase() {
       pin TEXT,
       ai_credits TEXT DEFAULT '10.00',
       created_at TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS inventory_stones (
+    )`,
+    `CREATE TABLE IF NOT EXISTS inventory_stones (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tenant_id INTEGER REFERENCES tenants(id) NOT NULL,
       brand TEXT NOT NULL,
@@ -73,9 +75,8 @@ export async function initializeLocalDatabase() {
       tags TEXT,
       is_active INTEGER DEFAULT 1 NOT NULL,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS client_orders (
+    )`,
+    `CREATE TABLE IF NOT EXISTS client_orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tenant_id INTEGER REFERENCES tenants(id) NOT NULL,
       user_id INTEGER REFERENCES users(id) NOT NULL,
@@ -89,9 +90,8 @@ export async function initializeLocalDatabase() {
       final_quote_price TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS order_photos (
+    )`,
+    `CREATE TABLE IF NOT EXISTS order_photos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tenant_id INTEGER REFERENCES tenants(id) NOT NULL,
       order_id INTEGER REFERENCES client_orders(id) NOT NULL,
@@ -99,9 +99,8 @@ export async function initializeLocalDatabase() {
       photo_type TEXT NOT NULL,
       gaussian_splat_url TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS calculation_items (
+    )`,
+    `CREATE TABLE IF NOT EXISTS calculation_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tenant_id INTEGER REFERENCES tenants(id) NOT NULL,
       name TEXT NOT NULL,
@@ -109,76 +108,49 @@ export async function initializeLocalDatabase() {
       price_per_unit TEXT NOT NULL,
       sort_order INTEGER DEFAULT 0,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL
-    );
-  `);
+    )`,
+  ];
 
-  // Check if we already have data
-  const result = await client.execute('SELECT COUNT(*) as count FROM admins');
-  const adminCount = result.rows[0]?.count as number;
-  if (adminCount > 0) {
-    console.log('Database already seeded.');
+  for (const sql of tables) {
+    await db.execute(sql);
+  }
+  console.log('✅ All tables created!\n');
+
+  // Check if already seeded
+  const result = await db.execute('SELECT COUNT(*) as count FROM admins');
+  if ((result.rows[0].count as number) > 0) {
+    console.log('Database already has data. Skipping seed.');
     return;
   }
 
-  console.log('Seeding database with initial data...');
+  console.log('🌱 Seeding initial data...\n');
 
   // Create super admin
   const hashedPassword = await bcrypt.hash('admin123', 10);
-  await client.execute({
+  await db.execute({
     sql: `INSERT INTO admins (tenant_id, role, email, password_hash) VALUES (NULL, 'super_admin', 'admin@slabflow.local', ?)`,
     args: [hashedPassword],
   });
+  console.log('✅ Super admin created: admin@slabflow.local / admin123');
 
   // Create test tenant
-  const tenantResult = await client.execute({
+  const tenantResult = await db.execute({
     sql: `INSERT INTO tenants (name, domain, is_active, contact_email, contact_phone) VALUES ('Test Stone Company', 'test-company.localhost', 1, 'info@test-company.com', '555-123-4567')`,
     args: [],
   });
-
   const tenantId = Number(tenantResult.lastInsertRowid);
+  console.log(`✅ Test tenant created (ID: ${tenantId})`);
 
   // Create tenant admin
   const tenantAdminPassword = await bcrypt.hash('tenant123', 10);
-  await client.execute({
+  await db.execute({
     sql: `INSERT INTO admins (tenant_id, role, email, password_hash) VALUES (?, 'tenant_admin', 'admin@test-company.localhost', ?)`,
     args: [tenantId, tenantAdminPassword],
   });
+  console.log('✅ Tenant admin created: admin@test-company.localhost / tenant123');
 
-  // Create some sample stones
-  await client.execute({
-    sql: `INSERT INTO inventory_stones (tenant_id, brand, series, stone_type, price_per_slab, image_url, name) VALUES (?, 'Caesarstone', 'Classic', 'quartz', '1200.00', '/images/sample-stone.jpg', '{"en": "White Granite", "zh": "白花岗岩"}')`,
-    args: [tenantId],
-  });
-
-  await client.execute({
-    sql: `INSERT INTO inventory_stones (tenant_id, brand, series, stone_type, price_per_slab, image_url, name) VALUES (?, 'Silestone', 'Eternal', 'quartz', '1500.00', '/images/sample-stone-2.jpg', '{"en": "Calacatta Gold", "zh": "卡拉卡塔金"}')`,
-    args: [tenantId],
-  });
-
-  // Create default calculation items
-  await client.execute({
-    sql: `INSERT INTO calculation_items (tenant_id, name, unit, price_per_unit, sort_order) VALUES (?, 'Straight Cut', 'per_unit', '50.00', 1)`,
-    args: [tenantId],
-  });
-
-  await client.execute({
-    sql: `INSERT INTO calculation_items (tenant_id, name, unit, price_per_unit, sort_order) VALUES (?, 'Mitered Edge', 'per_sqft', '35.00', 2)`,
-    args: [tenantId],
-  });
-
-  await client.execute({
-    sql: `INSERT INTO calculation_items (tenant_id, name, unit, price_per_unit, sort_order) VALUES (?, 'Installation', 'per_sqft', '25.00', 3)`,
-    args: [tenantId],
-  });
-
-  console.log('Database seeded successfully!');
-  console.log('');
-  console.log('=== Test Credentials ===');
-  console.log('Super Admin: admin@slabflow.local / admin123');
-  console.log('Tenant Admin: admin@test-company.localhost / tenant123');
-  console.log('========================');
-  console.log('');
+  console.log('\n🎉 Database initialization complete!');
+  console.log('\nNow run: npx tsx scripts/seed-demo-data.ts');
 }
 
-// Initialize on first import
-initializeLocalDatabase().catch(console.error);
+init().catch(console.error);
