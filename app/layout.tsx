@@ -8,6 +8,10 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'SlabFlow - Stone Fabrication Platform',
   description: 'Multi-tenant SaaS platform for stone fabrication industry',
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/tablogo.png',
+  },
 };
 
 export default function RootLayout({

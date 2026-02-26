@@ -26,7 +26,7 @@ export default function ThreeDGenPage() {
     thumbnailUrl?: string;
     caption?: string;
   } | null>(null);
-  const [selectedModel, setSelectedModel] = useState<'marble-0.1-mini' | 'marble-0.1-plus'>('marble-0.1-mini');
+  const [selectedModel, setSelectedModel] = useState<'Marble 0.1-mini' | 'Marble 0.1-plus'>('Marble 0.1-mini');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -87,7 +87,7 @@ export default function ThreeDGenPage() {
       }
 
       // Update progress based on model
-      const estimatedTotal = selectedModel === 'marble-0.1-mini' ? 12 : 60; // polls
+      const estimatedTotal = selectedModel === 'Marble 0.1-mini' ? 12 : 60; // polls
       const newProgress = Math.min(95, (pollCount / estimatedTotal) * 100);
       setProgress(newProgress);
 
@@ -153,9 +153,8 @@ export default function ThreeDGenPage() {
       const imageBase64 = await new Promise<string>((resolve) => {
         reader.onload = () => {
           const result = reader.result as string;
-          // Remove the data:image/xxx;base64, prefix
-          const base64 = result.split(',')[1];
-          resolve(base64);
+          // Send full data URL - the API route will handle stripping the prefix
+          resolve(result);
         };
         reader.readAsDataURL(selectedFile);
       });
@@ -259,9 +258,9 @@ export default function ThreeDGenPage() {
             <label className="text-sm font-medium text-stone-700 mb-3 block">Generation Quality</label>
             <div className="grid grid-cols-2 gap-3">
               <button
-                onClick={() => setSelectedModel('marble-0.1-mini')}
+                onClick={() => setSelectedModel('Marble 0.1-mini')}
                 className={`p-4 rounded-lg border-2 text-left transition-all ${
-                  selectedModel === 'marble-0.1-mini'
+                  selectedModel === 'Marble 0.1-mini'
                     ? 'border-amber-500 bg-amber-50/50'
                     : 'border-stone-100 hover:border-stone-200'
                 }`}
@@ -275,9 +274,9 @@ export default function ThreeDGenPage() {
                 <p className="text-xs text-stone-500">~30 seconds • Draft quality</p>
               </button>
               <button
-                onClick={() => setSelectedModel('marble-0.1-plus')}
+                onClick={() => setSelectedModel('Marble 0.1-plus')}
                 className={`p-4 rounded-lg border-2 text-left transition-all ${
-                  selectedModel === 'marble-0.1-plus'
+                  selectedModel === 'Marble 0.1-plus'
                     ? 'border-amber-500 bg-amber-50/50'
                     : 'border-stone-100 hover:border-stone-200'
                 }`}

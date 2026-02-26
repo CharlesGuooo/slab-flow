@@ -73,31 +73,12 @@ export default async function LocaleLayout({
               {/* Logo / Brand */}
               <div className="flex-shrink-0">
                 <Link href={`/${locale}`} className="flex items-center gap-3 group">
-                  {tenant?.themeLogoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={tenant.themeLogoUrl}
-                      alt={tenant.name}
-                      className="h-10 w-auto"
-                    />
-                  ) : (
-                    <>
-                      <svg className="w-9 h-9 text-stone-800" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M18 3L33 11V25L18 33L3 25V11L18 3Z" fill="currentColor" fillOpacity="0.08" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
-                        <path d="M18 3V33" stroke="currentColor" strokeWidth="0.8" strokeOpacity="0.3"/>
-                        <path d="M3 11L33 25" stroke="currentColor" strokeWidth="0.8" strokeOpacity="0.3"/>
-                        <path d="M33 11L3 25" stroke="currentColor" strokeWidth="0.8" strokeOpacity="0.3"/>
-                      </svg>
-                      <div className="flex flex-col">
-                        <span className="text-lg font-bold text-stone-900 tracking-tight leading-none">
-                          {tenant?.name || 'Stone Gallery'}
-                        </span>
-                        <span className="text-[10px] text-stone-400 tracking-[0.2em] uppercase">
-                          Premium Stone
-                        </span>
-                      </div>
-                    </>
-                  )}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/logo.png"
+                    alt={tenant?.name || 'CH Stone'}
+                    className="h-12 w-auto"
+                  />
                 </Link>
               </div>
 
@@ -133,15 +114,8 @@ export default async function LocaleLayout({
               {/* Brand */}
               <div className="md:col-span-2">
                 <div className="flex items-center gap-3 mb-5">
-                  <svg className="w-8 h-8 text-amber-500" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M18 3L33 11V25L18 33L3 25V11L18 3Z" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
-                    <path d="M18 3V33" stroke="currentColor" strokeWidth="0.8" strokeOpacity="0.3"/>
-                    <path d="M3 11L33 25" stroke="currentColor" strokeWidth="0.8" strokeOpacity="0.3"/>
-                    <path d="M33 11L3 25" stroke="currentColor" strokeWidth="0.8" strokeOpacity="0.3"/>
-                  </svg>
-                  <span className="text-xl font-bold text-white tracking-tight">
-                    {tenant?.name || 'Stone Gallery'}
-                  </span>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/logo.png" alt={tenant?.name || 'CH Stone'} className="h-10 w-auto brightness-0 invert" />
                 </div>
                 <p className="text-stone-400 text-sm leading-relaxed max-w-md">
                   {tFooter('description')}

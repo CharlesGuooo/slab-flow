@@ -26,6 +26,27 @@ body {
   }
 }
 
+/* Ensure all form inputs have visible dark text */
+input, textarea, select {
+  color: #1c1917 !important; /* stone-900 */
+}
+
+input::placeholder, textarea::placeholder {
+  color: #a8a29e !important; /* stone-400 */
+}
+
+select option {
+  color: #1c1917;
+  background: #ffffff;
+}
+
+/* Fix for autofill text color */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #1c1917 !important;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

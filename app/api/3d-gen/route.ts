@@ -35,60 +35,108 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { imageUrl, imageBase64, prompt, model = 'marble-0.1-mini' } = body;
+    const { imageBase64, imageUrl, prompt, model = 'Marble 0.1-mini' } = body;
 
-    if (!imageUrl && !imageBase64) {
+    if (!imageBase64 && !imageUrl) {
       return NextResponse.json(
         { error: 'An image is required to generate a 3D scene.' },
         { status: 400 }
       );
     }
 
-    // Build the World Labs API request
+    // Build the World Labs API request body per official docs
+    // Auth: WLT-Api-Key header
+    // Models: "Marble 0.1-mini" or "Marble 0.1-plus"
     const worldLabsBody: Record<string, unknown> = {
-      model: model, // marble-0.1-mini (fast, ~30s) or marble-0.1-plus (quality, ~5min)
+      model: model, // "Marble 0.1-mini" or "Marble 0.1-plus"
+      permission: {
+        public: true, // so user can view the result
+      },
     };
 
-    // Set the image input
-    if (imageUrl) {
-      worldLabsBody.image = {
-        type: 'uri',
-        uri: imageUrl,
+    // Build world_prompt based on input type
+    if (imageBase64) {
+      // DataBase64Reference format
+      // Strip data URL prefix if present (e.g., "data:image/jpeg;base64,")
+      let base64Data = imageBase64;
+      let extension = 'jpg';
+      
+      if (base64Data.startsWith('data:')) {
+        const match = base64Data.match(/^data:image\/(\w+);base64,(.+)$/);
+        if (match) {
+          extension = match[1] === 'jpeg' ? 'jpg' : match[1];
+          base64Data = match[2];
+        } else {
+          // Just strip the prefix
+          base64Data = base64Data.split(',')[1] || base64Data;
+        }
+      }
+
+      worldLabsBody.world_prompt = {
+        type: 'image',
+        image_prompt: {
+          source: 'data_base64',
+          data_base64: base64Data,
+          extension: extension,
+        },
+        ...(prompt ? { text_prompt: prompt, disable_recaption: true } : {}),
       };
-    } else if (imageBase64) {
-      worldLabsBody.image = {
-        type: 'data_base64',
-        data: imageBase64,
-        media_type: 'image/jpeg',
+    } else if (imageUrl) {
+      // UriReference format
+      worldLabsBody.world_prompt = {
+        type: 'image',
+        image_prompt: {
+          source: 'uri',
+          uri: imageUrl,
+        },
+        ...(prompt ? { text_prompt: prompt, disable_recaption: true } : {}),
       };
     }
 
-    // Optional text prompt for guidance
-    if (prompt) {
-      worldLabsBody.prompt = prompt;
-    }
+    console.log('[3D-Gen] Sending request to World Labs API...');
+    console.log('[3D-Gen] Model:', model);
+    console.log('[3D-Gen] Prompt type:', imageBase64 ? 'data_base64' : 'uri');
 
     // Call World Labs API to start generation
+    // IMPORTANT: Auth header is "WLT-Api-Key", NOT "Authorization: Bearer"
     const generateResponse = await fetch(`${WORLDLABS_API_BASE}/marble/v1/worlds:generate`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${WORLDLABS_API_KEY}`,
+        'WLT-Api-Key': WORLDLABS_API_KEY,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(worldLabsBody),
     });
 
     if (!generateResponse.ok) {
-      const errorData = await generateResponse.json().catch(() => ({}));
-      console.error('[3D-Gen] World Labs API error:', errorData);
+      const errorText = await generateResponse.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { message: errorText };
+      }
+      console.error('[3D-Gen] World Labs API error:', generateResponse.status, errorData);
+      
+      let userMessage = `World Labs API error (${generateResponse.status})`;
+      if (generateResponse.status === 401) {
+        userMessage = 'World Labs API authentication failed. Please check your API key.';
+      } else if (generateResponse.status === 402) {
+        userMessage = 'Insufficient World Labs credits. Please top up your account.';
+      } else if (generateResponse.status === 400) {
+        userMessage = errorData?.error?.message || errorData?.detail || 'Invalid request. Please try a different image.';
+      }
+      
       return NextResponse.json(
-        { error: errorData.error?.message || `World Labs API error: ${generateResponse.status}` },
+        { error: userMessage, details: errorData },
         { status: generateResponse.status }
       );
     }
 
     const generateData = await generateResponse.json();
-    const operationId = generateData.operation_id || generateData.id;
+    console.log('[3D-Gen] Generation started:', JSON.stringify(generateData));
+    
+    const operationId = generateData.operation_id;
 
     if (!operationId) {
       return NextResponse.json(
@@ -102,7 +150,7 @@ export async function POST(request: Request) {
       success: true,
       operationId,
       model,
-      estimatedTime: model === 'marble-0.1-mini' ? '30-45 seconds' : '4-5 minutes',
+      estimatedTime: model === 'Marble 0.1-mini' ? '30-45 seconds' : '4-5 minutes',
     });
   } catch (error) {
     console.error('[3D-Gen] Error:', error);
@@ -149,28 +197,40 @@ export async function GET(request: Request) {
     }
 
     // Poll World Labs API for operation status
+    // IMPORTANT: Auth header is "WLT-Api-Key", NOT "Authorization: Bearer"
     const statusResponse = await fetch(
       `${WORLDLABS_API_BASE}/marble/v1/operations/${operationId}`,
       {
         headers: {
-          'Authorization': `Bearer ${WORLDLABS_API_KEY}`,
+          'WLT-Api-Key': WORLDLABS_API_KEY,
         },
       }
     );
 
     if (!statusResponse.ok) {
-      const errorData = await statusResponse.json().catch(() => ({}));
+      const errorText = await statusResponse.text();
+      console.error('[3D-Gen] Status check error:', statusResponse.status, errorText);
       return NextResponse.json(
-        { error: errorData.error?.message || `Status check failed: ${statusResponse.status}` },
+        { error: `Status check failed: ${statusResponse.status}` },
         { status: statusResponse.status }
       );
     }
 
     const statusData = await statusResponse.json();
+    console.log('[3D-Gen] Operation status:', JSON.stringify(statusData));
 
     // Check if generation is complete
-    if (statusData.done || statusData.status === 'completed' || statusData.result) {
-      const result = statusData.result || statusData;
+    if (statusData.done === true) {
+      // Check for error
+      if (statusData.error) {
+        return NextResponse.json({
+          status: 'failed',
+          error: statusData.error.message || 'Generation failed',
+        });
+      }
+      
+      // Success - extract result
+      const result = statusData.response || statusData;
       return NextResponse.json({
         status: 'completed',
         worldId: result.world_id || result.id,
@@ -183,9 +243,10 @@ export async function GET(request: Request) {
     }
 
     // Still processing
+    const progress = statusData.metadata?.progress;
     return NextResponse.json({
       status: 'processing',
-      progress: statusData.progress || statusData.metadata?.progress,
+      progress: progress,
     });
   } catch (error) {
     console.error('[3D-Gen] Status check error:', error);

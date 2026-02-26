@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Search, Package, Loader2, Filter } from 'lucide-react';
+import { useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useLocalePath } from '@/lib/hooks/useLocalePath';
 
 interface Stone {
@@ -17,6 +18,7 @@ interface Stone {
 
 const STONE_TYPES = [
   { value: '', label: 'All Types' },
+  { value: 'sintered stone', label: 'Sintered Stone' },
   { value: 'quartz', label: 'Quartz' },
   { value: 'granite', label: 'Granite' },
   { value: 'marble', label: 'Marble' },
@@ -26,6 +28,9 @@ const STONE_TYPES = [
 
 export default function BrowsePage() {
   const localePath = useLocalePath();
+  const params = useParams();
+  const locale = (params?.locale as string) || 'en';
+  const t = useTranslations('browse');
   const [stones, setStones] = useState<Stone[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -45,7 +50,6 @@ export default function BrowsePage() {
         setIsLoading(false);
       }
     };
-
     fetchStones();
   }, []);
 
@@ -54,12 +58,12 @@ export default function BrowsePage() {
     if (typeof name === 'string') {
       try {
         const parsed = JSON.parse(name);
-        return parsed.en || parsed.zh || name;
+        return parsed[locale] || parsed.en || parsed.zh || name;
       } catch {
         return name;
       }
     }
-    return name.en || name.zh || 'Stone';
+    return (name as Record<string, string>)[locale] || name.en || name.zh || 'Stone';
   };
 
   const filteredStones = stones.filter((stone) => {
@@ -67,16 +71,27 @@ export default function BrowsePage() {
       stone.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
       stone.series.toLowerCase().includes(searchTerm.toLowerCase()) ||
       getStoneName(stone.name).toLowerCase().includes(searchTerm.toLowerCase());
-
     const matchesType = !filterType || stone.stoneType === filterType;
-
     return matchesSearch && matchesType;
+  });
+
+  // Group stones by brand (supplier)
+  const groupedStones: Record<string, Stone[]> = {};
+  filteredStones.forEach(stone => {
+    if (!groupedStones[stone.brand]) groupedStones[stone.brand] = [];
+    groupedStones[stone.brand].push(stone);
   });
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <div className="flex items-center gap-3 text-stone-400">
+          <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          <span className="text-sm">Loading stones...</span>
+        </div>
       </div>
     );
   }
@@ -84,100 +99,113 @@ export default function BrowsePage() {
   return (
     <div className="py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Page header */}
+        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Browse Stones</h1>
-          <p className="mt-2 text-gray-600">
-            Explore our collection of premium stone surfaces
+          <h1 className="text-3xl font-bold text-stone-900">{t('title') || 'Browse Stones'}</h1>
+          <p className="mt-2 text-stone-500 text-sm">
+            {t('subtitle') || 'Explore our collection of premium stone surfaces'}
           </p>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-8">
+        {/* Search & Filter */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
             <input
               type="text"
-              placeholder="Search by brand, series, or name..."
+              placeholder={t('searchPlaceholder') || 'Search by brand, model, or name...'}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full pl-10 pr-4 py-2.5 border border-stone-200 rounded-lg text-sm text-stone-900 placeholder:text-stone-400 focus:ring-1 focus:ring-amber-300 focus:border-amber-300 bg-white"
             />
           </div>
           <div className="relative">
-            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+              className="px-4 py-2.5 border border-stone-200 rounded-lg text-sm text-stone-900 focus:ring-1 focus:ring-amber-300 focus:border-amber-300 bg-white appearance-none pr-8"
             >
               {STONE_TYPES.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
+                <option key={type.value} value={type.value}>{type.label}</option>
               ))}
             </select>
+            <svg className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
         </div>
 
         {/* Disclaimer */}
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-700">
-            <strong>Note:</strong> Stone images are for representation purposes. Actual products may vary in color, pattern, and texture.
-            Please contact us to see actual samples.
+        <div className="mb-6 px-4 py-3 bg-[#faf8f5] border border-stone-100 rounded-lg flex items-start gap-2.5">
+          <svg className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-xs text-stone-500">
+            Images are for reference only. Actual stone products may vary in color, pattern, and texture. Each slab is unique. Please visit our showroom or contact us to see actual samples. All prices are per slab (3.2m x 1.6m, 20mm thick).
           </p>
         </div>
 
-        {/* Stones grid */}
-        {filteredStones.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredStones.map((stone) => (
-              <Link
-                key={stone.id}
-                href={localePath(`/browse/${stone.id}`)}
-                className="group bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow"
-              >
-                <div className="aspect-square relative bg-gray-100">
-                  {stone.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={stone.imageUrl}
-                      alt={getStoneName(stone.name)}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center h-full">
-                      <Package className="h-12 w-12 text-gray-300" />
-                    </div>
-                  )}
-                  <span className="absolute top-2 right-2 px-2 py-1 text-xs font-medium bg-white/90 rounded-full capitalize">
-                    {stone.stoneType}
-                  </span>
+        {/* Stones grouped by supplier */}
+        {Object.keys(groupedStones).length > 0 ? (
+          <div className="space-y-10">
+            {Object.entries(groupedStones).map(([brand, brandStones]) => (
+              <div key={brand}>
+                <div className="flex items-center gap-3 mb-4">
+                  <h2 className="text-lg font-bold text-stone-900">{brand}</h2>
+                  <span className="text-xs text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">{brandStones.length} stones</span>
                 </div>
-                <div className="p-4">
-                  <h3 className="font-semibold text-gray-900 truncate">
-                    {getStoneName(stone.name)}
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {stone.brand} - {stone.series}
-                  </p>
-                  {stone.pricePerSlab && (
-                    <p className="text-lg font-semibold text-blue-600 mt-2">
-                      ${parseFloat(stone.pricePerSlab).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </p>
-                  )}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {brandStones.map((stone) => (
+                    <Link
+                      key={stone.id}
+                      href={localePath(`/browse/${stone.id}`)}
+                      className="group bg-white rounded-lg border border-stone-100 overflow-hidden hover:shadow-md hover:border-amber-200 transition-all"
+                    >
+                      <div className="aspect-square relative bg-stone-50">
+                        {stone.imageUrl ? (
+                          <img
+                            src={stone.imageUrl}
+                            alt={getStoneName(stone.name)}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center h-full">
+                            <svg className="w-10 h-10 text-stone-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                        )}
+                        <span className="absolute top-2 right-2 px-2 py-0.5 text-[10px] font-medium bg-white/90 text-stone-600 rounded-full capitalize backdrop-blur-sm">
+                          {stone.stoneType}
+                        </span>
+                      </div>
+                      <div className="p-3">
+                        <p className="text-xs text-stone-400 font-medium uppercase tracking-wider">{stone.brand}</p>
+                        <h3 className="text-sm font-semibold text-stone-900 mt-0.5 truncate">{stone.series}</h3>
+                        <p className="text-xs text-stone-500 mt-0.5 truncate">{getStoneName(stone.name)}</p>
+                        {stone.pricePerSlab && (
+                          <p className="text-sm font-bold text-amber-700 mt-2">
+                            ${parseFloat(stone.pricePerSlab).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            <span className="text-[10px] font-normal text-stone-400 ml-1">/slab</span>
+                          </p>
+                        )}
+                      </div>
+                    </Link>
+                  ))}
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         ) : (
-          <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-            <Package className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No stones found</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {searchTerm || filterType
-                ? 'Try adjusting your search or filter'
-                : 'No stones available at the moment'}
+          <div className="text-center py-16 bg-white rounded-xl border border-stone-100">
+            <svg className="mx-auto w-12 h-12 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <h3 className="mt-3 text-sm font-medium text-stone-900">No stones found</h3>
+            <p className="mt-1 text-xs text-stone-500">
+              {searchTerm || filterType ? 'Try adjusting your search or filter' : 'No stones available at the moment'}
             </p>
           </div>
         )}

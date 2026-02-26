@@ -2,15 +2,19 @@
 
 import { useChat } from 'ai/react';
 import { useRouter, useParams } from 'next/navigation';
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { useLocalePath } from '@/lib/hooks/useLocalePath';
 
-interface RenderedImage {
+interface StoneInfo {
+  id: number;
+  name: string;
+  brand: string;
+  series: string;
   imageUrl: string;
-  stoneName: string;
+  price: string;
 }
 
 export default function ChatPage() {
@@ -22,9 +26,10 @@ export default function ChatPage() {
   const tCommon = useTranslations('common');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [uploadedImagePreview, setUploadedImagePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [renderedImages, setRenderedImages] = useState<RenderedImage[]>([]);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [stoneMap, setStoneMap] = useState<Record<number, StoneInfo>>({});
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -32,21 +37,19 @@ export default function ChatPage() {
     messages,
     input,
     setInput,
-    handleSubmit,
+    handleSubmit: originalHandleSubmit,
     isLoading,
     error,
   } = useChat({
     api: '/api/chat',
-    body: { imageUrl: uploadedImage },
-    onFinish: (message) => {
-      const renderMatch = message.content.match(/!\[.*?\]\((https?:\/\/[^\s)]+)\)/);
-      if (renderMatch) {
-        setRenderedImages(prev => [...prev, { imageUrl: renderMatch[1], stoneName: 'Rendered Stone' }]);
-      }
+    body: { imageUrl: uploadedImage, locale },
+    onFinish: () => {
       setUploadedImage(null);
+      setUploadedImagePreview(null);
     },
   });
 
+  // Check auth
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -59,15 +62,50 @@ export default function ChatPage() {
     checkAuth();
   }, []);
 
+  // Load stone data for displaying photos
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    const loadStones = async () => {
+      try {
+        const response = await fetch('/api/stones');
+        if (response.ok) {
+          const data = await response.json();
+          const map: Record<number, StoneInfo> = {};
+          for (const stone of data.stones || data) {
+            map[stone.id] = stone;
+          }
+          setStoneMap(map);
+        }
+      } catch (err) {
+        console.error('Failed to load stones:', err);
+      }
+    };
+    loadStones();
+  }, []);
+
+  // Scroll to bottom of chat container (not page)
+  const scrollToBottom = useCallback(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isLoading, scrollToBottom]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) { alert('Please upload an image file'); return; }
     if (file.size > 10 * 1024 * 1024) { alert('Image must be less than 10MB'); return; }
+    
+    // Show preview immediately
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setUploadedImagePreview(ev.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+    
     setIsUploading(true);
     try {
       const formData = new FormData();
@@ -79,22 +117,87 @@ export default function ChatPage() {
     } catch (err) {
       console.error('Upload error:', err);
       alert(err instanceof Error ? err.message : 'Failed to upload image');
+      setUploadedImagePreview(null);
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() && !uploadedImage) return;
+    originalHandleSubmit(e);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (input.trim() || uploadedImage) handleSubmit(e as unknown as React.FormEvent);
+      if (input.trim() || uploadedImage) {
+        handleSubmit(e as unknown as React.FormEvent);
+      }
     }
   };
 
   const handleSuggestionClick = (suggestion: string) => {
     setInput(suggestion);
     inputRef.current?.focus();
+  };
+
+  // Parse [STONE:id] tags in message content and render stone cards
+  const renderMessageContent = (content: string) => {
+    const parts: React.ReactNode[] = [];
+    const regex = /\[STONE:(\d+)\]/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(content)) !== null) {
+      // Add text before the match
+      if (match.index > lastIndex) {
+        parts.push(
+          <span key={`text-${lastIndex}`}>
+            {content.slice(lastIndex, match.index)}
+          </span>
+        );
+      }
+
+      const stoneId = parseInt(match[1], 10);
+      const stone = stoneMap[stoneId];
+
+      if (stone) {
+        parts.push(
+          <div key={`stone-${stoneId}-${match.index}`} className="my-3 bg-white rounded-lg border border-stone-200 overflow-hidden inline-block max-w-[280px] align-top">
+            <div className="relative w-[280px] h-[180px]">
+              <Image
+                src={stone.imageUrl}
+                alt={stone.name}
+                fill
+                className="object-cover"
+                unoptimized
+              />
+            </div>
+            <div className="p-3">
+              <p className="text-sm font-semibold text-stone-900">{stone.name}</p>
+              <p className="text-xs text-stone-500">{stone.brand} - {stone.series}</p>
+              <p className="text-xs text-amber-700 font-medium mt-1">${stone.price}/slab</p>
+            </div>
+          </div>
+        );
+      }
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Add remaining text
+    if (lastIndex < content.length) {
+      parts.push(
+        <span key={`text-${lastIndex}`}>
+          {content.slice(lastIndex)}
+        </span>
+      );
+    }
+
+    return parts.length > 0 ? parts : content;
   };
 
   const suggestedQuestions = [
@@ -104,7 +207,7 @@ export default function ChatPage() {
     t('suggestion4'),
   ];
 
-  // Not authenticated - show login prompt
+  // Not authenticated
   if (isAuthenticated === false) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center px-4">
@@ -121,17 +224,12 @@ export default function ChatPage() {
               className="px-6 py-3 text-sm font-medium text-white bg-stone-900 rounded-md hover:bg-stone-800 transition-all">
               {tCommon('signInNow')}
             </Link>
-            <Link href={`/${locale}/register`}
-              className="px-6 py-3 text-sm font-medium text-stone-700 border border-stone-200 rounded-md hover:bg-stone-50 transition-all">
-              {tCommon('createAccount')}
-            </Link>
           </div>
         </div>
       </div>
     );
   }
 
-  // Loading auth state
   if (isAuthenticated === null) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -147,9 +245,9 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-6 px-4 h-[calc(100vh-5rem)] flex flex-col">
+    <div className="max-w-4xl mx-auto px-4" style={{ height: 'calc(100vh - 80px)' }}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between py-3">
         <Link href={localePath('/browse')}
           className="inline-flex items-center text-sm text-stone-400 hover:text-stone-600 transition-colors">
           <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -165,13 +263,12 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* Chat Container */}
-      <div className="flex-1 bg-white rounded-xl border border-stone-100 shadow-sm flex flex-col overflow-hidden">
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+      {/* Chat Container - fixed height, internal scroll */}
+      <div className="bg-white rounded-xl border border-stone-100 shadow-sm flex flex-col" style={{ height: 'calc(100% - 52px)' }}>
+        {/* Messages Area - scrolls internally */}
+        <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-6 space-y-4">
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center px-4">
-              {/* Welcome State */}
               <div className="w-16 h-16 bg-[#f5f0ea] rounded-full flex items-center justify-center mb-5">
                 <svg className="w-8 h-8 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -185,7 +282,7 @@ export default function ChatPage() {
                   <button
                     key={index}
                     onClick={() => handleSuggestionClick(question)}
-                    className="text-left px-4 py-3 bg-[#faf8f5] hover:bg-[#f5f0ea] border border-stone-100 rounded-lg text-sm text-stone-600 transition-all hover:border-amber-200 group"
+                    className="text-left px-4 py-3 bg-[#faf8f5] hover:bg-[#f5f0ea] border border-stone-100 rounded-lg text-sm text-stone-700 transition-all hover:border-amber-200 group"
                   >
                     <span className="text-amber-700 mr-2 group-hover:mr-3 transition-all">&rarr;</span>
                     {question}
@@ -209,7 +306,12 @@ export default function ChatPage() {
                       ? 'bg-stone-900 text-white'
                       : 'bg-[#faf8f5] text-stone-800 border border-stone-100'
                   }`}>
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
+                    <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                      {message.role === 'assistant'
+                        ? renderMessageContent(message.content)
+                        : message.content
+                      }
+                    </div>
                     <p className={`text-[10px] mt-1.5 ${message.role === 'user' ? 'text-stone-400' : 'text-stone-400'}`}>
                       {new Date(message.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
@@ -223,31 +325,6 @@ export default function ChatPage() {
                   )}
                 </div>
               ))}
-
-              {/* Rendered images */}
-              {renderedImages.length > 0 && (
-                <div className="flex gap-3 justify-start">
-                  <div className="w-8 h-8 bg-[#f5f0ea] rounded-full flex items-center justify-center flex-shrink-0">
-                    <svg className="w-4 h-4 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div className="bg-[#faf8f5] border border-stone-100 rounded-xl p-4">
-                    <p className="text-xs text-stone-500 mb-3 font-medium">AI Generated Rendering</p>
-                    <div className="grid grid-cols-1 gap-3">
-                      {renderedImages.map((img, idx) => (
-                        <div key={idx} className="relative rounded-lg overflow-hidden">
-                          <Image src={img.imageUrl} alt={img.stoneName} width={400} height={300} className="rounded-lg" />
-                          <a href={img.imageUrl} download
-                            className="absolute bottom-2 right-2 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-md text-xs text-stone-700 hover:bg-white transition-all font-medium">
-                            Download
-                          </a>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Loading indicator */}
               {isLoading && (
@@ -264,7 +341,7 @@ export default function ChatPage() {
                         <span className="w-1.5 h-1.5 bg-amber-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                         <span className="w-1.5 h-1.5 bg-amber-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                       </div>
-                      <span className="text-xs text-stone-400">{t('aiThinking')}</span>
+                      <span className="text-xs text-stone-500">{t('aiThinking')}</span>
                     </div>
                   </div>
                 </div>
@@ -276,19 +353,25 @@ export default function ChatPage() {
                   {error.message}
                 </div>
               )}
-
-              <div ref={messagesEndRef} />
             </>
           )}
         </div>
 
-        {/* Input Area */}
-        <div className="border-t border-stone-100 p-4 bg-white">
+        {/* Input Area - fixed at bottom of chat container */}
+        <div className="border-t border-stone-100 p-4 bg-white rounded-b-xl">
           {/* Image preview */}
-          {uploadedImage && (
+          {uploadedImagePreview && (
             <div className="mb-3 relative inline-block">
-              <Image src={uploadedImage} alt="Preview" width={120} height={80} className="rounded-lg border border-stone-100" />
-              <button type="button" onClick={() => setUploadedImage(null)}
+              <img src={uploadedImagePreview} alt="Preview" className="w-[120px] h-[80px] object-cover rounded-lg border border-stone-200" />
+              {isUploading && (
+                <div className="absolute inset-0 bg-white/60 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 animate-spin text-amber-600" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                </div>
+              )}
+              <button type="button" onClick={() => { setUploadedImage(null); setUploadedImagePreview(null); }}
                 className="absolute -top-2 -right-2 w-5 h-5 bg-stone-900 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -300,7 +383,6 @@ export default function ChatPage() {
           <form onSubmit={handleSubmit} className="flex items-end gap-2">
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
             
-            {/* Upload button */}
             <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading || isLoading}
               className="flex-shrink-0 w-10 h-10 flex items-center justify-center border border-stone-200 rounded-lg hover:bg-stone-50 disabled:opacity-50 transition-all"
               title={t('uploadImage')}>
@@ -316,7 +398,6 @@ export default function ChatPage() {
               )}
             </button>
 
-            {/* Text input */}
             <textarea
               ref={inputRef}
               value={input}
@@ -324,11 +405,10 @@ export default function ChatPage() {
               onKeyDown={handleKeyDown}
               placeholder={t('placeholder')}
               rows={1}
-              className="flex-1 px-4 py-2.5 border border-stone-200 rounded-lg focus:ring-1 focus:ring-amber-300 focus:border-amber-300 resize-none text-sm text-stone-800 placeholder:text-stone-400 bg-[#faf8f5]"
+              className="flex-1 px-4 py-2.5 border border-stone-200 rounded-lg focus:ring-1 focus:ring-amber-300 focus:border-amber-300 resize-none text-sm text-stone-900 placeholder:text-stone-400 bg-[#faf8f5]"
               disabled={isLoading}
             />
 
-            {/* Send button */}
             <button type="submit" disabled={(!input.trim() && !uploadedImage) || isLoading}
               className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-stone-900 text-white rounded-lg hover:bg-stone-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
