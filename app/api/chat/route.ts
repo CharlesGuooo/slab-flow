@@ -160,19 +160,8 @@ export async function POST(request: NextRequest) {
     if (tenantIdHeader) {
       tenantId = parseInt(tenantIdHeader, 10);
     } else {
-      const host = request.headers.get('host') || '';
-      const subdomain = host.split('.')[0];
-
-      const tenant = await db
-        .select()
-        .from(tenants)
-        .where(eq(tenants.domain, subdomain === 'localhost' ? 'test-company.localhost' : `${subdomain}.localhost`))
-        .limit(1);
-
-      if (!tenant.length) {
-        return Response.json({ error: 'Tenant not found' }, { status: 404 });
-      }
-      tenantId = tenant[0].id;
+      // Fallback: default to tenant 1
+      tenantId = 1;
     }
 
     // === GET STONE INVENTORY ===

@@ -1,22 +1,16 @@
 import { NextResponse } from 'next/server';
-import { db, calculationItems, tenants } from '@/lib/db';
+import { db, calculationItems } from '@/lib/db';
 import { eq } from 'drizzle-orm';
+import { headers } from 'next/headers';
 
 // GET - Get calculation items for tenant
 export async function GET() {
   try {
-    // Get tenant from host
-    const host = process.env.NODE_ENV === 'development' ? 'localhost' : '';
-    const subdomain = host.split('.')[0];
+    // Get tenant ID from middleware headers
+    const headersList = await headers();
+    const tenantId = headersList.get('x-tenant-id');
 
-    // Get tenant
-    const tenant = await db
-      .select()
-      .from(tenants)
-      .where(eq(tenants.domain, subdomain === 'localhost' ? 'test-company.localhost' : `${subdomain}.localhost`))
-      .limit(1);
-
-    if (!tenant.length) {
+    if (!tenantId) {
       return NextResponse.json(
         { error: 'Tenant not found' },
         { status: 404 }
@@ -26,7 +20,7 @@ export async function GET() {
     const items = await db
       .select()
       .from(calculationItems)
-      .where(eq(calculationItems.tenantId, tenant[0].id));
+      .where(eq(calculationItems.tenantId, parseInt(tenantId, 10)));
 
     return NextResponse.json({
       items,
