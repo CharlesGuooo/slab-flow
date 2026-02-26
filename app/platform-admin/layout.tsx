@@ -6,7 +6,7 @@ interface PlatformAdminLayoutProps {
 
 export default function PlatformAdminLayout({ children }: PlatformAdminLayoutProps) {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-900">
       {children}
     </div>
   );

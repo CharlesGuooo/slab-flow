@@ -6,6 +6,9 @@ const locales = ['en', 'zh', 'fr'] as const;
 type Locale = (typeof locales)[number];
 const defaultLocale: Locale = 'en';
 
+// Platform domain patterns (SlabFlow admin)
+const PLATFORM_DOMAINS = ['slabflow.site', 'www.slabflow.site'];
+
 // Routes that don't require tenant identification
 const PUBLIC_ROUTES = [
   '/platform-admin',
@@ -26,65 +29,39 @@ const STATIC_PATTERNS = [
   /\.(jpg|jpeg|png|gif|webp|avif|svg|ico|woff|woff2|ttf|eot|css|js)$/i,
 ];
 
-/**
- * Check if a path should skip tenant identification
- */
 function shouldSkipTenantCheck(pathname: string): boolean {
-  // Check for static files
   if (STATIC_PATTERNS.some((pattern) => pattern.test(pathname))) {
     return true;
   }
-
-  // Check for public routes
   if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
     return true;
   }
-
-  // Root path
-  if (pathname === '/') {
-    return true;
-  }
-
   return false;
 }
 
-/**
- * Extract locale from pathname
- */
 function getLocaleFromPathname(pathname: string): Locale | null {
   const segments = pathname.split('/').filter(Boolean);
   const firstSegment = segments[0];
-
   if (locales.includes(firstSegment as Locale)) {
     return firstSegment as Locale;
   }
-
   return null;
 }
 
-/**
- * Get locale from Accept-Language header
- */
 function getLocaleFromHeader(acceptLanguage: string | null): Locale {
   if (!acceptLanguage) return defaultLocale;
-
   const languages = acceptLanguage.split(',').map((lang) => {
     const [locale] = lang.trim().split(';');
     return locale.split('-')[0].toLowerCase();
   });
-
   for (const lang of languages) {
     if (locales.includes(lang as Locale)) {
       return lang as Locale;
     }
   }
-
   return defaultLocale;
 }
 
-/**
- * Set tenant headers on the response for a given tenant
- */
 function setTenantHeaders(
   response: NextResponse,
   tenantId: string,
@@ -109,20 +86,60 @@ function setTenantHeaders(
   return response;
 }
 
+/**
+ * Check if the host is a platform domain (slabflow.site)
+ */
+function isPlatformDomain(host: string): boolean {
+  // Check exact matches
+  if (PLATFORM_DOMAINS.some((d) => host === d)) return true;
+  // Check if it's a Vercel deployment URL or contains slabflow/slab-flow
+  if (host.includes('slab-flow') && host.includes('vercel.app')) return true;
+  if (host.includes('slabflow') && !host.includes('chstone')) return true;
+  return false;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const host = request.headers.get('host') || '';
 
-  // Skip middleware for public routes and static files
+  // Skip middleware for static files and public routes
   if (shouldSkipTenantCheck(pathname)) {
     return NextResponse.next();
   }
 
-  // Determine locale - priority: URL path > cookie > Accept-Language header
+  // ============================================
+  // PLATFORM DOMAIN HANDLING (slabflow.site)
+  // ============================================
+  if (isPlatformDomain(host)) {
+    // Root path on platform domain → redirect to platform admin login
+    if (pathname === '/') {
+      return NextResponse.redirect(new URL('/platform-admin/login', request.url));
+    }
+    // Allow platform-admin routes to pass through
+    if (pathname.startsWith('/platform-admin') || pathname.startsWith('/api/platform-admin')) {
+      return NextResponse.next();
+    }
+    // Block tenant routes on platform domain - redirect to platform admin
+    if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
+      return NextResponse.redirect(new URL('/platform-admin/login', request.url));
+    }
+    // For locale routes on platform domain, redirect to platform admin
+    const pathLocale = getLocaleFromPathname(pathname);
+    if (pathLocale) {
+      return NextResponse.redirect(new URL('/platform-admin/login', request.url));
+    }
+    return NextResponse.next();
+  }
+
+  // ============================================
+  // TENANT DOMAIN HANDLING (e.g., chstone.shop)
+  // ============================================
+
+  // Determine locale
   const pathLocale = getLocaleFromPathname(pathname);
   const cookieLocale = request.cookies.get('locale')?.value;
 
   let locale: Locale;
-
   if (pathLocale) {
     locale = pathLocale;
   } else if (cookieLocale && locales.includes(cookieLocale as Locale)) {
@@ -131,7 +148,11 @@ export async function middleware(request: NextRequest) {
     locale = getLocaleFromHeader(request.headers.get('accept-language'));
   }
 
-  const host = request.headers.get('host') || '';
+  // Root path on tenant domain → redirect to locale landing page
+  if (pathname === '/') {
+    return NextResponse.redirect(new URL(`/${locale}`, request.url));
+  }
+
   const isLocalhost = host.startsWith('localhost');
   const isDev = process.env.NODE_ENV === 'development';
 
@@ -141,51 +162,18 @@ export async function middleware(request: NextRequest) {
     return setTenantHeaders(response, '1', 'Test Stone Company', locale);
   }
 
-  // For production: resolve tenant from domain
-  // 
-  // Strategy:
-  // 1. If DEFAULT_TENANT_ID env var is set, use it (single-tenant / demo mode)
-  // 2. Otherwise, try to match host against tenant domains in the database
-  // 3. If no match, try subdomain-based lookup (e.g., tenant-name.slabflow.app)
-  //
-  // For now, we support single-tenant mode via DEFAULT_TENANT_ID,
-  // and Vercel domain / custom domain access.
+  // Production: resolve tenant
+  // Try to match host against known tenant domains
+  // For now, any non-platform domain defaults to tenant 1
+  const defaultTenantId = process.env.DEFAULT_TENANT_ID || '1';
+  const defaultTenantName = process.env.DEFAULT_TENANT_NAME || 'CH Stone';
 
-  const defaultTenantId = process.env.DEFAULT_TENANT_ID;
-
-  if (defaultTenantId) {
-    // Single-tenant / demo mode: all requests go to this tenant
-    const tenantName = process.env.DEFAULT_TENANT_NAME || 'SlabFlow';
-    const response = NextResponse.next();
-    return setTenantHeaders(response, defaultTenantId, tenantName, locale);
-  }
-
-  // Multi-tenant mode: try to resolve tenant from subdomain
-  // e.g., test-company.slab-flow-zeta.vercel.app or test-company.yourdomain.com
-  const baseDomain = process.env.BASE_DOMAIN || '';
-  if (baseDomain && host.endsWith(baseDomain)) {
-    const subdomain = host.replace(`.${baseDomain}`, '').split('.')[0];
-    if (subdomain && subdomain !== 'www') {
-      // TODO: Look up tenant by subdomain from database via edge-compatible fetch
-      // For now, fall through to default
-    }
-  }
-
-  // Fallback: If no tenant resolution strategy matched, default to tenant 1
-  // This ensures the app works on any Vercel preview/production URL
   const response = NextResponse.next();
-  return setTenantHeaders(response, '1', 'Test Stone Company', locale);
+  return setTenantHeaders(response, defaultTenantId, defaultTenantName, locale);
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder files
-     */
     '/((?!_next/static|_next/image|favicon.ico|public/).*)',
   ],
 };
