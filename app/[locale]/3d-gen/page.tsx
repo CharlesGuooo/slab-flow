@@ -8,6 +8,13 @@ import { useTranslations } from 'next-intl';
 
 type GenerationStatus = 'idle' | 'uploading' | 'generating' | 'polling' | 'completed' | 'error';
 
+interface AIRender {
+  imageUrl: string;
+  stoneName: string;
+  stoneId: number;
+  createdAt: string;
+}
+
 export default function ThreeDGenPage() {
   const params = useParams();
   const locale = (params?.locale as string) || 'en';
@@ -29,6 +36,10 @@ export default function ThreeDGenPage() {
   const [selectedModel, setSelectedModel] = useState<'Marble 0.1-mini' | 'Marble 0.1-plus'>('Marble 0.1-mini');
   const [balance, setBalance] = useState<number | null>(null);
   const [balanceNotice, setBalanceNotice] = useState<string | null>(null);
+  // AI renders from chat
+  const [aiRenders, setAiRenders] = useState<AIRender[]>([]);
+  const [selectedRender, setSelectedRender] = useState<AIRender | null>(null);
+  const [showUploadOption, setShowUploadOption] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -42,6 +53,21 @@ export default function ThreeDGenPage() {
       }
     };
     checkAuth();
+  }, []);
+
+  // Load AI renders from sessionStorage
+  useEffect(() => {
+    try {
+      const savedRenders = sessionStorage.getItem('chat_ai_renders_for_3d');
+      if (savedRenders) {
+        const parsed = JSON.parse(savedRenders);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setAiRenders(parsed);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load AI renders:', err);
+    }
   }, []);
 
   // Fetch balance
@@ -89,10 +115,10 @@ export default function ThreeDGenPage() {
         return true;
       } else if (res.status === 402) {
         const notice = locale === 'zh'
-          ? `余额不足！当前余额: $${data.balance.toFixed(2)}，需要: $${data.required.toFixed(2)}`
+          ? '余额不足！请联系商家充值后继续使用。'
           : locale === 'fr'
-          ? `Solde insuffisant ! Solde: $${data.balance.toFixed(2)}, requis: $${data.required.toFixed(2)}`
-          : `Insufficient balance! Balance: $${data.balance.toFixed(2)}, required: $${data.required.toFixed(2)}`;
+          ? 'Solde insuffisant ! Contactez le fournisseur pour recharger.'
+          : 'Insufficient balance! Please contact the supplier to top up.';
         setBalanceNotice(notice);
         setTimeout(() => setBalanceNotice(null), 8000);
         return false;
@@ -102,6 +128,8 @@ export default function ThreeDGenPage() {
     }
     return true;
   }, [locale]);
+
+  const isBalanceZero = balance !== null && balance <= 0;
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -117,6 +145,7 @@ export default function ThreeDGenPage() {
     if (file.size > 10 * 1024 * 1024) { alert(locale === 'zh' ? '图片不能超过10MB' : 'Image must be less than 10MB'); return; }
     setSelectedFile(file);
     setPreviewUrl(URL.createObjectURL(file));
+    setSelectedRender(null);
     setResult(null);
     setStatus('idle');
     setErrorMessage('');
@@ -128,6 +157,18 @@ export default function ThreeDGenPage() {
     if (!file || !file.type.startsWith('image/')) return;
     setSelectedFile(file);
     setPreviewUrl(URL.createObjectURL(file));
+    setSelectedRender(null);
+    setResult(null);
+    setStatus('idle');
+    setErrorMessage('');
+  };
+
+  // Select an AI render for 3D generation
+  const handleSelectRender = (render: AIRender) => {
+    setSelectedRender(render);
+    setPreviewUrl(render.imageUrl);
+    setSelectedFile(null); // Clear file selection since we're using a render
+    setShowUploadOption(false);
     setResult(null);
     setStatus('idle');
     setErrorMessage('');
@@ -172,7 +213,6 @@ export default function ThreeDGenPage() {
             thumbnailUrl: data.thumbnailUrl,
             caption: data.caption,
           });
-          // Refresh balance after completion
           fetchBalance();
         } else if (data.error) {
           if (pollingRef.current) clearInterval(pollingRef.current);
@@ -186,7 +226,17 @@ export default function ThreeDGenPage() {
   }, [selectedModel, locale, fetchBalance]);
 
   const handleGenerate = async () => {
-    if (!selectedFile) return;
+    // Need either a file or a selected render
+    if (!selectedFile && !selectedRender) return;
+
+    // Check balance
+    if (isBalanceZero) {
+      setBalanceNotice(locale === 'zh'
+        ? '余额不足！请联系商家充值。'
+        : 'Insufficient balance! Please contact the supplier.');
+      setTimeout(() => setBalanceNotice(null), 8000);
+      return;
+    }
 
     // Deduct credits first
     const action = selectedModel === 'Marble 0.1-mini' ? '3d_quick' : '3d_high';
@@ -197,29 +247,49 @@ export default function ThreeDGenPage() {
     setProgress(0);
     setErrorMessage('');
     setResult(null);
-    setStatusMessage(locale === 'zh' ? '上传图片中...' : 'Uploading image...');
+    setStatusMessage(locale === 'zh' ? '准备图片中...' : 'Preparing image...');
 
     try {
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-      const uploadResponse = await fetch('/api/upload', { method: 'POST', body: formData });
-      
-      if (!uploadResponse.ok) {
+      let imageBase64: string;
+      let uploadedUrl: string | undefined;
+
+      if (selectedRender) {
+        // Use the AI render image - it's already a data URL or a URL
+        if (selectedRender.imageUrl.startsWith('data:')) {
+          imageBase64 = selectedRender.imageUrl;
+        } else {
+          // Fetch the image and convert to base64
+          const response = await fetch(selectedRender.imageUrl);
+          const blob = await response.blob();
+          imageBase64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+        }
+      } else if (selectedFile) {
+        // Upload the file first
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        const uploadResponse = await fetch('/api/upload', { method: 'POST', body: formData });
+        
+        if (!uploadResponse.ok) {
+          const uploadData = await uploadResponse.json();
+          throw new Error(uploadData.error || 'Failed to upload image');
+        }
         const uploadData = await uploadResponse.json();
-        throw new Error(uploadData.error || 'Failed to upload image');
+        uploadedUrl = uploadData.url?.startsWith('data:') ? undefined : uploadData.url;
+
+        imageBase64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(selectedFile);
+        });
+      } else {
+        throw new Error('No image selected');
       }
-      const uploadData = await uploadResponse.json();
+
       setProgress(10);
-
-      const reader = new FileReader();
-      const imageBase64 = await new Promise<string>((resolve) => {
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result);
-        };
-        reader.readAsDataURL(selectedFile);
-      });
-
       setStatus('generating');
       setStatusMessage(locale === 'zh' ? '启动3D场景生成...' : 'Starting 3D scene generation...');
       setProgress(15);
@@ -229,7 +299,7 @@ export default function ThreeDGenPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           imageBase64,
-          imageUrl: uploadData.url?.startsWith('data:') ? undefined : uploadData.url,
+          imageUrl: uploadedUrl,
           model: selectedModel,
         }),
       });
@@ -255,10 +325,6 @@ export default function ThreeDGenPage() {
       setErrorMessage(err instanceof Error ? err.message : 'Failed to generate 3D scene');
     }
   };
-
-  // Cost labels
-  const quickCost = '$0.50';
-  const highCost = '$2.00';
 
   // Not authenticated
   if (isAuthenticated === false) {
@@ -306,8 +372,16 @@ export default function ThreeDGenPage() {
       {/* Balance notice toast */}
       {balanceNotice && (
         <div className="fixed top-20 right-4 z-50">
-          <div className="bg-white border border-amber-200 shadow-lg rounded-lg px-4 py-3 flex items-center gap-2">
-            <svg className="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className={`border shadow-lg rounded-lg px-4 py-3 flex items-center gap-2 ${
+            balanceNotice.includes('不足') || balanceNotice.includes('Insufficient')
+              ? 'bg-red-50 border-red-200'
+              : 'bg-white border-amber-200'
+          }`}>
+            <svg className={`w-4 h-4 flex-shrink-0 ${
+              balanceNotice.includes('不足') || balanceNotice.includes('Insufficient')
+                ? 'text-red-600'
+                : 'text-amber-600'
+            }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span className="text-sm text-stone-700">{balanceNotice}</span>
@@ -321,7 +395,7 @@ export default function ThreeDGenPage() {
       )}
 
       {/* Header */}
-      <div className="text-center mb-12">
+      <div className="text-center mb-10">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-amber-50 border border-amber-100 rounded-full mb-4">
           <svg className="w-4 h-4 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
@@ -333,142 +407,243 @@ export default function ThreeDGenPage() {
         
         {/* Balance display */}
         {balance !== null && (
-          <div className="mt-4 inline-flex items-center gap-1.5 px-4 py-1.5 bg-amber-50 border border-amber-200 rounded-full">
-            <svg className="w-3.5 h-3.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className={`mt-4 inline-flex items-center gap-1.5 px-4 py-1.5 border rounded-full ${
+            isBalanceZero ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'
+          }`}>
+            <svg className={`w-3.5 h-3.5 ${isBalanceZero ? 'text-red-600' : 'text-amber-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span className="text-xs font-medium text-amber-800">
+            <span className={`text-xs font-medium ${isBalanceZero ? 'text-red-800' : 'text-amber-800'}`}>
               {locale === 'zh' ? '余额' : locale === 'fr' ? 'Solde' : 'Balance'}: ${balance.toFixed(2)}
             </span>
           </div>
         )}
       </div>
 
+      {/* Zero balance warning */}
+      {isBalanceZero && (
+        <div className="mb-6 px-4 py-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+          <svg className="w-4 h-4 text-red-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <span className="text-sm text-red-700">
+            {locale === 'zh'
+              ? '您的余额已用完。请联系商家充值后继续使用3D场景功能。'
+              : locale === 'fr'
+              ? 'Votre solde est épuisé. Contactez le fournisseur pour recharger.'
+              : 'Your balance is depleted. Please contact the supplier to top up your credits.'}
+          </span>
+        </div>
+      )}
+
       {/* Main Card */}
       <div className="bg-white border border-stone-100 rounded-xl overflow-hidden shadow-sm">
         <div className="p-8">
+          {/* AI Renders from Chat - Primary Selection */}
+          {aiRenders.length > 0 && !previewUrl && (
+            <div className="mb-8">
+              <h2 className="text-lg font-semibold text-stone-900 mb-2">
+                {locale === 'zh' ? '选择AI效果图' : locale === 'fr' ? 'Sélectionnez une visualisation IA' : 'Select an AI Visualization'}
+              </h2>
+              <p className="text-sm text-stone-500 mb-4">
+                {locale === 'zh'
+                  ? '这些是您在AI助手中生成的效果图，选择一张来体验3D沉浸式场景。'
+                  : locale === 'fr'
+                  ? 'Voici les visualisations générées dans l\'assistant IA. Sélectionnez-en une pour l\'expérience 3D immersive.'
+                  : 'These are visualizations generated in the AI Assistant. Select one to experience an immersive 3D scene.'}
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {aiRenders.map((render, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleSelectRender(render)}
+                    disabled={isBalanceZero}
+                    className={`relative group rounded-lg overflow-hidden border-2 transition-all ${
+                      selectedRender?.imageUrl === render.imageUrl
+                        ? 'border-amber-500 ring-2 ring-amber-200'
+                        : 'border-stone-200 hover:border-amber-300'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    <img
+                      src={render.imageUrl}
+                      alt={render.stoneName}
+                      className="w-full h-[140px] object-cover"
+                    />
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                      <p className="text-xs text-white font-medium truncate">{render.stoneName}</p>
+                    </div>
+                    {selectedRender?.imageUrl === render.imageUrl && (
+                      <div className="absolute top-2 right-2 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center">
+                        <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Option to upload own photo */}
+              <div className="mt-4 text-center">
+                <button
+                  onClick={() => setShowUploadOption(true)}
+                  className="text-xs text-stone-400 hover:text-amber-700 transition-colors underline"
+                >
+                  {locale === 'zh' ? '或者上传自己的照片' : locale === 'fr' ? 'Ou téléchargez votre propre photo' : 'Or upload your own photo'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Model Selection */}
           <div className="mb-6">
             <label className="text-sm font-medium text-stone-700 mb-3 block">
-              {locale === 'zh' ? '生成质量' : locale === 'fr' ? 'Qualité de génération' : 'Generation Quality'}
+              {locale === 'zh' ? '体验模式' : locale === 'fr' ? 'Mode d\'expérience' : 'Experience Mode'}
             </label>
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setSelectedModel('Marble 0.1-mini')}
+                disabled={isBalanceZero}
                 className={`p-4 rounded-lg border-2 text-left transition-all ${
                   selectedModel === 'Marble 0.1-mini'
                     ? 'border-amber-500 bg-amber-50/50'
                     : 'border-stone-100 hover:border-stone-200'
-                }`}
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <div className="flex items-center gap-2 mb-1">
                   <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                   <span className="text-sm font-semibold text-stone-900">
-                    {locale === 'zh' ? '快速预览' : locale === 'fr' ? 'Aperçu rapide' : 'Quick Preview'}
+                    {locale === 'zh' ? '快速体验' : locale === 'fr' ? 'Aperçu rapide' : 'Quick Preview'}
                   </span>
                 </div>
                 <p className="text-xs text-stone-500">
-                  {locale === 'zh' ? '~30秒 • 草稿质量' : '~30 seconds • Draft quality'}
-                </p>
-                <p className="text-xs font-semibold text-amber-700 mt-1">
-                  {locale === 'zh' ? `费用: ${quickCost}` : locale === 'fr' ? `Coût: ${quickCost}` : `Cost: ${quickCost}`}
+                  {locale === 'zh' ? '~30秒 • 快速预览效果' : '~30 seconds • Quick preview'}
                 </p>
               </button>
               <button
                 onClick={() => setSelectedModel('Marble 0.1-plus')}
+                disabled={isBalanceZero}
                 className={`p-4 rounded-lg border-2 text-left transition-all ${
                   selectedModel === 'Marble 0.1-plus'
                     ? 'border-amber-500 bg-amber-50/50'
                     : 'border-stone-100 hover:border-stone-200'
-                }`}
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <div className="flex items-center gap-2 mb-1">
                   <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                   </svg>
                   <span className="text-sm font-semibold text-stone-900">
-                    {locale === 'zh' ? '高质量' : locale === 'fr' ? 'Haute qualité' : 'High Quality'}
+                    {locale === 'zh' ? '高清体验' : locale === 'fr' ? 'Haute qualité' : 'HD Experience'}
                   </span>
                 </div>
                 <p className="text-xs text-stone-500">
-                  {locale === 'zh' ? '~5分钟 • 生产级质量' : '~5 minutes • Production quality'}
-                </p>
-                <p className="text-xs font-semibold text-amber-700 mt-1">
-                  {locale === 'zh' ? `费用: ${highCost}` : locale === 'fr' ? `Coût: ${highCost}` : `Cost: ${highCost}`}
+                  {locale === 'zh' ? '~5分钟 • 沉浸式高清场景' : '~5 minutes • Immersive HD scene'}
                 </p>
               </button>
             </div>
           </div>
 
-          {/* Upload Area */}
-          <h2 className="text-lg font-semibold text-stone-900 mb-2">{t('uploadTitle')}</h2>
-          <p className="text-sm text-stone-500 mb-4">{t('uploadDesc')}</p>
+          {/* Upload Area - shown when no AI renders, or when user opts to upload */}
+          {(aiRenders.length === 0 || showUploadOption || previewUrl) && (
+            <>
+              {!selectedRender && (
+                <>
+                  <h2 className="text-lg font-semibold text-stone-900 mb-2">
+                    {aiRenders.length > 0
+                      ? (locale === 'zh' ? '上传您的照片' : locale === 'fr' ? 'Téléchargez votre photo' : 'Upload Your Photo')
+                      : t('uploadTitle')}
+                  </h2>
+                  <p className="text-sm text-stone-500 mb-4">{t('uploadDesc')}</p>
 
-          <div
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer
-              ${previewUrl ? 'border-amber-300 bg-amber-50/30' : 'border-stone-200 hover:border-amber-300 hover:bg-[#faf8f5]'}`}
-            onClick={() => status === 'idle' && fileInputRef.current?.click()}
-          >
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
-            
-            {previewUrl ? (
-              <div className="space-y-4">
-                <div className="relative inline-block">
-                  <Image src={previewUrl} alt="Selected photo" width={400} height={300} className="rounded-lg max-h-64 object-contain mx-auto" />
-                  {status === 'idle' && (
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={handleDrop}
+                    className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer
+                      ${previewUrl ? 'border-amber-300 bg-amber-50/30' : 'border-stone-200 hover:border-amber-300 hover:bg-[#faf8f5]'}`}
+                    onClick={() => status === 'idle' && fileInputRef.current?.click()}
+                  >
+                    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
+                    
+                    {previewUrl && !selectedRender ? (
+                      <div className="space-y-4">
+                        <div className="relative inline-block">
+                          <Image src={previewUrl} alt="Selected photo" width={400} height={300} className="rounded-lg max-h-64 object-contain mx-auto" unoptimized />
+                          {status === 'idle' && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setSelectedFile(null); setPreviewUrl(null); }}
+                              className="absolute -top-2 -right-2 w-6 h-6 bg-stone-900 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-sm text-stone-500">{selectedFile?.name}</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="w-14 h-14 bg-[#f5f0ea] rounded-full flex items-center justify-center mx-auto">
+                          <svg className="w-6 h-6 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-stone-700">{t('selectPhoto')}</p>
+                          <p className="text-xs text-stone-400 mt-1">{t('dragDrop')}</p>
+                        </div>
+                        <p className="text-[10px] text-stone-400">{t('supportedFormats')}</p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Selected render preview */}
+              {selectedRender && (
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h2 className="text-lg font-semibold text-stone-900">
+                      {locale === 'zh' ? '已选择效果图' : locale === 'fr' ? 'Visualisation sélectionnée' : 'Selected Visualization'}
+                    </h2>
                     <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); setSelectedFile(null); setPreviewUrl(null); }}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-stone-900 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                      onClick={() => { setSelectedRender(null); setPreviewUrl(null); }}
+                      className="text-xs text-stone-400 hover:text-stone-600 underline"
                     >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
+                      {locale === 'zh' ? '重新选择' : locale === 'fr' ? 'Resélectionner' : 'Change Selection'}
                     </button>
-                  )}
+                  </div>
+                  <div className="rounded-lg overflow-hidden border border-amber-200">
+                    <img src={selectedRender.imageUrl} alt={selectedRender.stoneName} className="w-full max-h-[300px] object-contain bg-stone-50" />
+                    <div className="px-3 py-2 bg-amber-50 flex items-center gap-2">
+                      <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-sm font-medium text-amber-800">{selectedRender.stoneName}</span>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-sm text-stone-500">{selectedFile?.name}</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="w-14 h-14 bg-[#f5f0ea] rounded-full flex items-center justify-center mx-auto">
-                  <svg className="w-6 h-6 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-stone-700">{t('selectPhoto')}</p>
-                  <p className="text-xs text-stone-400 mt-1">{t('dragDrop')}</p>
-                </div>
-                <p className="text-[10px] text-stone-400">{t('supportedFormats')}</p>
-              </div>
-            )}
-          </div>
+              )}
+            </>
+          )}
 
           {/* Generate Button */}
-          {status === 'idle' && (
+          {status === 'idle' && (selectedFile || selectedRender) && (
             <div className="mt-6 flex flex-col items-center gap-2">
               <button
                 onClick={handleGenerate}
-                disabled={!selectedFile}
+                disabled={isBalanceZero}
                 className="inline-flex items-center gap-2 px-8 py-3 text-sm font-medium text-white bg-stone-900 rounded-lg hover:bg-stone-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
                 </svg>
-                {t('generate')}
+                {locale === 'zh' ? '生成3D沉浸式场景' : locale === 'fr' ? 'Générer la scène 3D immersive' : 'Generate Immersive 3D Scene'}
               </button>
-              <p className="text-xs text-stone-400">
-                {locale === 'zh'
-                  ? `本次生成将消耗 ${selectedModel === 'Marble 0.1-mini' ? quickCost : highCost}`
-                  : locale === 'fr'
-                  ? `Cette génération coûtera ${selectedModel === 'Marble 0.1-mini' ? quickCost : highCost}`
-                  : `This generation will cost ${selectedModel === 'Marble 0.1-mini' ? quickCost : highCost}`}
-              </p>
             </div>
           )}
 
@@ -543,7 +718,7 @@ export default function ThreeDGenPage() {
 
             {result.thumbnailUrl && (
               <div className="mb-4">
-                <Image src={result.thumbnailUrl} alt="3D Scene Thumbnail" width={600} height={400} className="rounded-lg border border-stone-200" />
+                <Image src={result.thumbnailUrl} alt="3D Scene Thumbnail" width={600} height={400} className="rounded-lg border border-stone-200" unoptimized />
               </div>
             )}
 
@@ -574,7 +749,7 @@ export default function ThreeDGenPage() {
                 </a>
               )}
               <button
-                onClick={() => { setStatus('idle'); setResult(null); setSelectedFile(null); setPreviewUrl(null); setProgress(0); }}
+                onClick={() => { setStatus('idle'); setResult(null); setSelectedFile(null); setPreviewUrl(null); setSelectedRender(null); setProgress(0); }}
                 className="inline-flex items-center gap-2 px-6 py-3 text-sm font-medium text-stone-500 hover:text-stone-700 transition-all"
               >
                 {locale === 'zh' ? '再次生成' : locale === 'fr' ? 'Générer un autre' : 'Generate Another'}

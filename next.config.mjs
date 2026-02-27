@@ -16,6 +16,14 @@ const nextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'files.manuscdn.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.manuscdn.com',
+      },
+      {
+        protocol: 'https',
         hostname: '*.cloudflarestream.com',
       },
       {

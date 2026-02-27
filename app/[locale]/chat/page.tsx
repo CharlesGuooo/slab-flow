@@ -23,7 +23,24 @@ const STORAGE_KEYS = {
   customerSpaceImage: 'chat_customer_space_image',
   generatedImages: 'chat_generated_images',
   messageImages: 'chat_message_images',
+  aiRenders: 'chat_ai_renders_for_3d', // NEW: saves renders for 3D scene page
 };
+
+// Strip markdown formatting from AI responses
+function stripMarkdown(text: string): string {
+  // Remove bold **text** or __text__
+  let cleaned = text.replace(/\*\*(.+?)\*\*/g, '$1');
+  cleaned = cleaned.replace(/__(.+?)__/g, '$1');
+  // Remove italic *text* or _text_ (but not inside URLs or tags)
+  cleaned = cleaned.replace(/(?<!\[)\*(.+?)\*(?!\])/g, '$1');
+  // Remove heading markers
+  cleaned = cleaned.replace(/^#{1,6}\s+/gm, '');
+  // Remove bullet point dashes at start of lines
+  cleaned = cleaned.replace(/^[-•]\s+/gm, '');
+  // Remove numbered list markers like "1. " at start of lines
+  cleaned = cleaned.replace(/^\d+\.\s+/gm, '');
+  return cleaned;
+}
 
 export default function ChatPage() {
   const localePath = useLocalePath();
@@ -54,6 +71,8 @@ export default function ChatPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Track the image that's about to be sent with the next message
   const pendingImageRef = useRef<string | null>(null);
+  // Track the last user message count to detect new user messages
+  const lastUserMsgCountRef = useRef(0);
   // Track if we've restored from session
   const restoredRef = useRef(false);
 
@@ -88,6 +107,8 @@ export default function ChatPage() {
         const parsed = JSON.parse(savedMessages);
         if (Array.isArray(parsed) && parsed.length > 0) {
           setMessages(parsed);
+          // Count existing user messages
+          lastUserMsgCountRef.current = parsed.filter((m: { role: string }) => m.role === 'user').length;
         }
       }
       const savedSpaceImage = sessionStorage.getItem(STORAGE_KEYS.customerSpaceImage);
@@ -143,13 +164,17 @@ export default function ChatPage() {
 
   // When a new user message appears, attach the pending image to it
   useEffect(() => {
-    if (messages.length > 0) {
-      const lastMsg = messages[messages.length - 1];
-      if (lastMsg.role === 'user' && pendingImageRef.current && !messageImages[lastMsg.id]) {
-        setMessageImages(prev => ({ ...prev, [lastMsg.id]: pendingImageRef.current! }));
+    const userMessages = messages.filter(m => m.role === 'user');
+    const currentCount = userMessages.length;
+    
+    if (currentCount > lastUserMsgCountRef.current && pendingImageRef.current) {
+      const latestUserMsg = userMessages[userMessages.length - 1];
+      if (latestUserMsg && !messageImages[latestUserMsg.id]) {
+        setMessageImages(prev => ({ ...prev, [latestUserMsg.id]: pendingImageRef.current! }));
         pendingImageRef.current = null;
       }
     }
+    lastUserMsgCountRef.current = currentCount;
   }, [messages, messageImages]);
 
   // Check auth
@@ -212,10 +237,10 @@ export default function ChatPage() {
         return true;
       } else if (res.status === 402) {
         const notice = locale === 'zh'
-          ? `余额不足！当前余额: $${data.balance.toFixed(2)}，需要: $${data.required.toFixed(2)}`
+          ? '余额不足！请联系商家充值后继续使用AI功能。'
           : locale === 'fr'
-          ? `Solde insuffisant ! Solde: $${data.balance.toFixed(2)}, requis: $${data.required.toFixed(2)}`
-          : `Insufficient balance! Balance: $${data.balance.toFixed(2)}, required: $${data.required.toFixed(2)}`;
+          ? 'Solde insuffisant ! Contactez le fournisseur pour recharger.'
+          : 'Insufficient balance! Please contact the supplier to top up your credits.';
         setBalanceNotice(notice);
         setTimeout(() => setBalanceNotice(null), 8000);
         return false;
@@ -225,6 +250,9 @@ export default function ChatPage() {
     }
     return true; // Allow action even if billing fails
   }, [locale]);
+
+  // Check if balance is zero
+  const isBalanceZero = balance !== null && balance <= 0;
 
   // Load stone data
   useEffect(() => {
@@ -258,10 +286,39 @@ export default function ChatPage() {
     scrollToBottom();
   }, [messages, isLoading, scrollToBottom]);
 
+  // Save AI render to 3D scene list
+  const saveRenderFor3D = useCallback((imageUrl: string, stoneName: string, stoneId: number) => {
+    try {
+      const existingStr = sessionStorage.getItem(STORAGE_KEYS.aiRenders);
+      const existing: Array<{ imageUrl: string; stoneName: string; stoneId: number; createdAt: string }> = existingStr ? JSON.parse(existingStr) : [];
+      // Don't add duplicates
+      if (!existing.find(r => r.imageUrl === imageUrl)) {
+        existing.push({
+          imageUrl,
+          stoneName,
+          stoneId,
+          createdAt: new Date().toISOString(),
+        });
+        sessionStorage.setItem(STORAGE_KEYS.aiRenders, JSON.stringify(existing));
+      }
+    } catch (err) {
+      console.error('Failed to save render for 3D:', err);
+    }
+  }, []);
+
   // Handle image generation when [RENDER:id] tag is detected
   const handleRenderStone = useCallback(async (stoneId: number, messageId: string) => {
     const renderKey = `${messageId}-${stoneId}`;
     if (generatingImages[renderKey] || generatedImages[renderKey]) return;
+
+    // Check balance first
+    if (isBalanceZero) {
+      setBalanceNotice(locale === 'zh'
+        ? '余额不足！请联系商家充值后继续使用AI功能。'
+        : 'Insufficient balance! Please contact the supplier to top up your credits.');
+      setTimeout(() => setBalanceNotice(null), 8000);
+      return;
+    }
 
     // Deduct credits for image generation
     const allowed = await deductCredits('image_generation');
@@ -294,6 +351,9 @@ export default function ChatPage() {
       if (!response.ok) throw new Error(data.error || 'Generation failed');
 
       setGeneratedImages(prev => ({ ...prev, [renderKey]: data.imageUrl }));
+      
+      // Auto-save to 3D scene list
+      saveRenderFor3D(data.imageUrl, stone.name, stoneId);
     } catch (err) {
       console.error('Image generation error:', err);
       setGenerationErrors(prev => ({
@@ -303,7 +363,7 @@ export default function ChatPage() {
     } finally {
       setGeneratingImages(prev => ({ ...prev, [renderKey]: false }));
     }
-  }, [customerSpaceImage, stoneMap, generatingImages, generatedImages, deductCredits]);
+  }, [customerSpaceImage, stoneMap, generatingImages, generatedImages, deductCredits, isBalanceZero, locale, saveRenderFor3D]);
 
   // Auto-trigger renders when new messages contain [RENDER:id]
   useEffect(() => {
@@ -355,8 +415,18 @@ export default function ChatPage() {
     e.preventDefault();
     if (!input.trim() && !uploadedImage) return;
 
+    // Check balance
+    if (isBalanceZero) {
+      setBalanceNotice(locale === 'zh'
+        ? '余额不足！请联系商家充值后继续使用AI功能。'
+        : 'Insufficient balance! Please contact the supplier to top up your credits.');
+      setTimeout(() => setBalanceNotice(null), 8000);
+      return;
+    }
+
     // Deduct credits for chat message
-    await deductCredits('chat_message');
+    const allowed = await deductCredits('chat_message');
+    if (!allowed) return;
 
     // Save the current preview image to attach to the message
     if (uploadedImagePreview) {
@@ -403,14 +473,16 @@ export default function ChatPage() {
 
   // Parse message content for [STONE:id] and [RENDER:id] tags
   const renderMessageContent = (content: string, messageId: string) => {
+    // First strip markdown from the content
+    const cleanContent = stripMarkdown(content);
+    
     const parts: React.ReactNode[] = [];
-    // Match both [STONE:id] and [RENDER:id]
     const regex = /\[(?:STONE|RENDER):(\d+)\]/g;
     let lastIndex = 0;
     let match;
     const renderedStones = new Set<number>();
 
-    while ((match = regex.exec(content)) !== null) {
+    while ((match = regex.exec(cleanContent)) !== null) {
       const fullMatch = match[0];
       const stoneId = parseInt(match[1], 10);
       const isRender = fullMatch.startsWith('[RENDER:');
@@ -418,7 +490,7 @@ export default function ChatPage() {
       if (match.index > lastIndex) {
         parts.push(
           <span key={`text-${lastIndex}`}>
-            {content.slice(lastIndex, match.index)}
+            {cleanContent.slice(lastIndex, match.index)}
           </span>
         );
       }
@@ -426,17 +498,17 @@ export default function ChatPage() {
       const stone = stoneMap[stoneId];
 
       if (stone && !isRender) {
-        // Only show stone card once per stone per message
         if (!renderedStones.has(stoneId)) {
           renderedStones.add(stoneId);
           parts.push(
             <div key={`stone-${stoneId}-${match.index}`} className="my-3 bg-white rounded-lg border border-stone-200 overflow-hidden inline-block max-w-[280px] align-top shadow-sm">
               <div className="relative w-[280px] h-[180px] cursor-pointer" onClick={() => openLightbox(stone.imageUrl, stone.name)}>
-                <Image
+                {/* Use unoptimized img tag for external URLs */}
+                <img
                   src={stone.imageUrl}
                   alt={stone.name}
-                  fill
-                  className="object-cover"
+                  className="w-full h-full object-cover"
+                  loading="lazy"
                 />
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/40 to-transparent p-2">
                   <p className="text-[9px] text-white/70">
@@ -453,7 +525,6 @@ export default function ChatPage() {
           );
         }
       } else if (isRender) {
-        // Show render result or loading state
         const renderKey = `${messageId}-${stoneId}`;
         const isGenerating = generatingImages[renderKey];
         const generatedUrl = generatedImages[renderKey];
@@ -535,15 +606,15 @@ export default function ChatPage() {
       lastIndex = match.index + match[0].length;
     }
 
-    if (lastIndex < content.length) {
+    if (lastIndex < cleanContent.length) {
       parts.push(
         <span key={`text-${lastIndex}`}>
-          {content.slice(lastIndex)}
+          {cleanContent.slice(lastIndex)}
         </span>
       );
     }
 
-    return parts.length > 0 ? parts : content;
+    return parts.length > 0 ? parts : cleanContent;
   };
 
   const suggestedQuestions = [
@@ -599,7 +670,6 @@ export default function ChatPage() {
           onClick={closeLightbox}
         >
           <div className="relative max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-            {/* Close button */}
             <button
               onClick={closeLightbox}
               className="absolute -top-3 -right-3 z-10 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-stone-100 transition-colors"
@@ -608,15 +678,11 @@ export default function ChatPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            
-            {/* Image */}
             <img 
               src={lightboxImage} 
               alt={lightboxTitle} 
               className="max-w-full max-h-[80vh] rounded-lg shadow-2xl object-contain"
             />
-            
-            {/* Bottom bar with title and download */}
             <div className="mt-3 flex items-center justify-between bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2.5">
               <span className="text-sm text-white font-medium">{lightboxTitle}</span>
               <button
@@ -645,11 +711,13 @@ export default function ChatPage() {
         <div className="flex items-center gap-4">
           {/* Balance display */}
           {balance !== null && (
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 rounded-full">
-              <svg className="w-3.5 h-3.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className={`flex items-center gap-1.5 px-3 py-1 border rounded-full ${
+              isBalanceZero ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'
+            }`}>
+              <svg className={`w-3.5 h-3.5 ${isBalanceZero ? 'text-red-600' : 'text-amber-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span className="text-xs font-medium text-amber-800">${balance.toFixed(2)}</span>
+              <span className={`text-xs font-medium ${isBalanceZero ? 'text-red-800' : 'text-amber-800'}`}>${balance.toFixed(2)}</span>
             </div>
           )}
           <div className="flex items-center gap-2 text-amber-700">
@@ -664,8 +732,16 @@ export default function ChatPage() {
       {/* Balance notice toast */}
       {balanceNotice && (
         <div className="fixed top-20 right-4 z-50 animate-in slide-in-from-right">
-          <div className="bg-white border border-amber-200 shadow-lg rounded-lg px-4 py-3 flex items-center gap-2">
-            <svg className="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className={`border shadow-lg rounded-lg px-4 py-3 flex items-center gap-2 ${
+            balanceNotice.includes('不足') || balanceNotice.includes('Insufficient')
+              ? 'bg-red-50 border-red-200'
+              : 'bg-white border-amber-200'
+          }`}>
+            <svg className={`w-4 h-4 flex-shrink-0 ${
+              balanceNotice.includes('不足') || balanceNotice.includes('Insufficient')
+                ? 'text-red-600'
+                : 'text-amber-600'
+            }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span className="text-sm text-stone-700">{balanceNotice}</span>
@@ -678,8 +754,24 @@ export default function ChatPage() {
         </div>
       )}
 
+      {/* Zero balance warning */}
+      {isBalanceZero && (
+        <div className="mb-2 px-4 py-2 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+          <svg className="w-4 h-4 text-red-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <span className="text-sm text-red-700">
+            {locale === 'zh'
+              ? '您的AI余额已用完。请联系商家充值后继续使用AI功能。'
+              : locale === 'fr'
+              ? 'Votre solde IA est épuisé. Contactez le fournisseur pour recharger.'
+              : 'Your AI balance is depleted. Please contact the supplier to top up your credits.'}
+          </span>
+        </div>
+      )}
+
       {/* Chat Container */}
-      <div className="bg-white rounded-xl border border-stone-100 shadow-sm flex flex-col" style={{ height: 'calc(100% - 52px)' }}>
+      <div className="bg-white rounded-xl border border-stone-100 shadow-sm flex flex-col" style={{ height: isBalanceZero ? 'calc(100% - 92px)' : 'calc(100% - 52px)' }}>
         {/* Messages Area */}
         <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-6 space-y-4">
           {messages.length === 0 ? (
@@ -694,7 +786,7 @@ export default function ChatPage() {
               
               {/* Cost info */}
               <div className="mb-6 px-4 py-2 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-700">
-                {locale === 'zh' ? '💡 每条消息消耗 $0.02 | AI生图消耗 $0.15' : locale === 'fr' ? '💡 Chaque message coûte $0.02 | Génération image $0.15' : '💡 Each message costs $0.02 | Image generation $0.15'}
+                {locale === 'zh' ? '每条消息消耗 $0.02 | AI生图消耗 $0.15' : locale === 'fr' ? 'Chaque message coûte $0.02 | Génération image $0.15' : 'Each message costs $0.02 | Image generation $0.15'}
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-lg">
@@ -702,7 +794,8 @@ export default function ChatPage() {
                   <button
                     key={index}
                     onClick={() => handleSuggestionClick(question)}
-                    className="text-left px-4 py-3 bg-[#faf8f5] hover:bg-[#f5f0ea] border border-stone-100 rounded-lg text-sm text-stone-700 transition-all group"
+                    disabled={isBalanceZero}
+                    className="text-left px-4 py-3 bg-[#faf8f5] hover:bg-[#f5f0ea] border border-stone-100 rounded-lg text-sm text-stone-700 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <span className="text-amber-700 mr-2 group-hover:mr-3 transition-all">&rarr;</span>
                     {question}
@@ -797,7 +890,7 @@ export default function ChatPage() {
 
         {/* Customer space image indicator */}
         {customerSpaceImage && !uploadedImagePreview && (
-          <div className="mx-4 mb-2 flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
+          <div className="mx-4 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
             <svg className="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
@@ -842,7 +935,7 @@ export default function ChatPage() {
           <form onSubmit={handleSubmit} className="flex items-end gap-2">
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
             
-            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading || isLoading}
+            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading || isLoading || isBalanceZero}
               className="flex-shrink-0 w-10 h-10 flex items-center justify-center border border-stone-200 rounded-lg hover:bg-stone-50 disabled:opacity-50 transition-all"
               title={t('uploadImage')}>
               {isUploading ? (
@@ -862,13 +955,15 @@ export default function ChatPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={t('placeholder')}
+              placeholder={isBalanceZero
+                ? (locale === 'zh' ? '余额不足，请联系商家充值' : 'Insufficient balance, please contact supplier')
+                : t('placeholder')}
               rows={1}
               className="flex-1 px-4 py-2.5 border border-stone-200 rounded-lg focus:ring-1 focus:ring-amber-300 focus:border-amber-300 resize-none text-sm text-stone-900 placeholder:text-stone-400 bg-[#faf8f5]"
-              disabled={isLoading}
+              disabled={isLoading || isBalanceZero}
             />
 
-            <button type="submit" disabled={(!input.trim() && !uploadedImage) || isLoading}
+            <button type="submit" disabled={(!input.trim() && !uploadedImage) || isLoading || isBalanceZero}
               className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-stone-900 text-white rounded-lg hover:bg-stone-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
