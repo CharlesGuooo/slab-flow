@@ -198,7 +198,7 @@ export default async function TenantLandingPage({ params }: { params: { locale: 
                     {/* Quick View overlay */}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
                       <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 px-4 py-2 bg-white/90 text-stone-900 text-xs font-medium tracking-wider uppercase">
-                        Quick View
+                        {locale === 'zh' ? '快速查看' : locale === 'fr' ? 'Aperçu rapide' : 'Quick View'}
                       </span>
                     </div>
                   </div>
@@ -349,7 +349,7 @@ export default async function TenantLandingPage({ params }: { params: { locale: 
       <section className="py-16 bg-[#f5f0ea]">
         <div className="max-w-4xl mx-auto text-center px-4">
           <h2 className="text-2xl md:text-3xl font-light text-stone-800 tracking-[0.05em] uppercase">
-            Let Your Space Be Art
+            {locale === 'zh' ? '让您的空间成为艺术' : locale === 'fr' ? 'Laissez votre espace devenir art' : 'Let Your Space Be Art'}
           </h2>
           <div className="w-12 h-[1px] bg-amber-700/40 mx-auto mt-4" />
         </div>

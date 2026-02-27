@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -9,6 +9,8 @@ import {
   Loader2,
   Upload,
   X,
+  Languages,
+  Sparkles,
 } from 'lucide-react';
 
 const STONE_TYPES = [
@@ -17,12 +19,13 @@ const STONE_TYPES = [
   { value: 'marble', label: 'Marble' },
   { value: 'quartzite', label: 'Quartzite' },
   { value: 'porcelain', label: 'Porcelain' },
+  { value: 'sintered stone', label: 'Sintered Stone' },
 ];
 
 const LANGUAGES = [
-  { code: 'en', label: 'English' },
-  { code: 'zh', label: 'Chinese' },
-  { code: 'fr', label: 'French' },
+  { code: 'en', label: 'English', flag: '🇺🇸' },
+  { code: 'zh', label: 'Chinese', flag: '🇨🇳' },
+  { code: 'fr', label: 'French', flag: '🇫🇷' },
 ];
 
 export default function NewStonePage() {
@@ -30,6 +33,9 @@ export default function NewStonePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeLang, setActiveLang] = useState('en');
   const [tagInput, setTagInput] = useState('');
+  const [isTranslatingName, setIsTranslatingName] = useState(false);
+  const [isTranslatingDesc, setIsTranslatingDesc] = useState(false);
+  const [translateSuccess, setTranslateSuccess] = useState<Record<string, boolean>>({});
 
   const [formData, setFormData] = useState({
     brand: '',
@@ -67,6 +73,53 @@ export default function NewStonePage() {
       description: { ...prev.description, [lang]: value },
     }));
   };
+
+  // AI Auto-translate function
+  const handleAutoTranslate = useCallback(async (field: 'name' | 'description') => {
+    const currentText = formData[field][activeLang as keyof typeof formData.name];
+    if (!currentText.trim()) {
+      alert(`Please enter the ${field} in ${LANGUAGES.find(l => l.code === activeLang)?.label} first.`);
+      return;
+    }
+
+    if (field === 'name') setIsTranslatingName(true);
+    else setIsTranslatingDesc(true);
+
+    try {
+      const response = await fetch('/api/admin/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: currentText,
+          field: field,
+          sourceLang: activeLang,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Translation failed');
+
+      const data = await response.json();
+      const translations = data.translations;
+
+      if (translations) {
+        setFormData((prev) => ({
+          ...prev,
+          [field]: {
+            ...prev[field],
+            ...translations,
+          },
+        }));
+        setTranslateSuccess(prev => ({ ...prev, [field]: true }));
+        setTimeout(() => setTranslateSuccess(prev => ({ ...prev, [field]: false })), 3000);
+      }
+    } catch (error) {
+      console.error('Translation error:', error);
+      alert('Auto-translation failed. Please try again or enter translations manually.');
+    } finally {
+      if (field === 'name') setIsTranslatingName(false);
+      else setIsTranslatingDesc(false);
+    }
+  }, [formData, activeLang]);
 
   const handleAddTag = () => {
     const tag = tagInput.trim();
@@ -135,6 +188,10 @@ export default function NewStonePage() {
     }
   };
 
+  const hasTextInCurrentLang = (field: 'name' | 'description') => {
+    return formData[field][activeLang as keyof typeof formData.name]?.trim().length > 0;
+  };
+
   return (
     <div className="max-w-3xl mx-auto">
       {/* Header */}
@@ -148,7 +205,7 @@ export default function NewStonePage() {
         </Link>
         <h1 className="text-2xl font-bold text-gray-900">Add New Stone</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Add a new stone to your inventory
+          Add a new stone to your inventory. Use AI to auto-translate names and descriptions.
         </p>
       </div>
 
@@ -255,7 +312,6 @@ export default function NewStonePage() {
                 type="button"
                 className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100"
                 onClick={() => {
-                  // For now, just a placeholder - in production would open file upload
                   alert('File upload requires R2 configuration. Please enter URL directly.');
                 }}
               >
@@ -283,7 +339,43 @@ export default function NewStonePage() {
 
         {/* Multi-language Name */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Stone Name (Multi-language)</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <Languages className="h-5 w-5 text-blue-500" />
+              Stone Name (Multi-language)
+            </h2>
+            <button
+              type="button"
+              onClick={() => handleAutoTranslate('name')}
+              disabled={isTranslatingName || !hasTextInCurrentLang('name')}
+              className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                translateSuccess.name
+                  ? 'bg-green-50 text-green-700 border border-green-200'
+                  : 'bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed'
+              }`}
+            >
+              {isTranslatingName ? (
+                <>
+                  <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                  Translating...
+                </>
+              ) : translateSuccess.name ? (
+                <>
+                  <Sparkles className="h-3 w-3 mr-1.5" />
+                  Translated!
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-3 w-3 mr-1.5" />
+                  AI Auto-Translate
+                </>
+              )}
+            </button>
+          </div>
+
+          <p className="text-xs text-gray-500 mb-3">
+            Enter the name in any language, then click &quot;AI Auto-Translate&quot; to fill in the other languages automatically.
+          </p>
 
           {/* Language tabs */}
           <div className="flex border-b border-gray-200 mb-4">
@@ -292,13 +384,17 @@ export default function NewStonePage() {
                 key={lang.code}
                 type="button"
                 onClick={() => setActiveLang(lang.code)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 ${
                   activeLang === lang.code
                     ? 'text-blue-600 border-blue-600'
                     : 'text-gray-500 border-transparent hover:text-gray-700'
                 }`}
               >
+                <span>{lang.flag}</span>
                 {lang.label}
+                {formData.name[lang.code as keyof typeof formData.name] && (
+                  <span className="w-2 h-2 rounded-full bg-green-400" />
+                )}
               </button>
             ))}
           </div>
@@ -318,7 +414,43 @@ export default function NewStonePage() {
 
         {/* Multi-language Description */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Description (Multi-language)</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <Languages className="h-5 w-5 text-blue-500" />
+              Description (Multi-language)
+            </h2>
+            <button
+              type="button"
+              onClick={() => handleAutoTranslate('description')}
+              disabled={isTranslatingDesc || !hasTextInCurrentLang('description')}
+              className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                translateSuccess.description
+                  ? 'bg-green-50 text-green-700 border border-green-200'
+                  : 'bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed'
+              }`}
+            >
+              {isTranslatingDesc ? (
+                <>
+                  <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                  Translating...
+                </>
+              ) : translateSuccess.description ? (
+                <>
+                  <Sparkles className="h-3 w-3 mr-1.5" />
+                  Translated!
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-3 w-3 mr-1.5" />
+                  AI Auto-Translate
+                </>
+              )}
+            </button>
+          </div>
+
+          <p className="text-xs text-gray-500 mb-3">
+            Enter the description in any language, then click &quot;AI Auto-Translate&quot; to fill in the other languages automatically.
+          </p>
 
           {/* Language tabs */}
           <div className="flex border-b border-gray-200 mb-4">
@@ -327,13 +459,17 @@ export default function NewStonePage() {
                 key={lang.code}
                 type="button"
                 onClick={() => setActiveLang(lang.code)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 ${
                   activeLang === lang.code
                     ? 'text-blue-600 border-blue-600'
                     : 'text-gray-500 border-transparent hover:text-gray-700'
                 }`}
               >
+                <span>{lang.flag}</span>
                 {lang.label}
+                {formData.description[lang.code as keyof typeof formData.description] && (
+                  <span className="w-2 h-2 rounded-full bg-green-400" />
+                )}
               </button>
             ))}
           </div>

@@ -16,25 +16,41 @@ interface Stone {
   name: { en?: string; zh?: string; fr?: string } | string;
 }
 
-const STONE_TYPES = [
-  { value: '', label: 'All Types' },
-  { value: 'sintered stone', label: 'Sintered Stone' },
-  { value: 'quartz', label: 'Quartz' },
-  { value: 'granite', label: 'Granite' },
-  { value: 'marble', label: 'Marble' },
-  { value: 'quartzite', label: 'Quartzite' },
-  { value: 'porcelain', label: 'Porcelain' },
-];
-
 export default function BrowsePage() {
   const localePath = useLocalePath();
   const params = useParams();
   const locale = (params?.locale as string) || 'en';
   const t = useTranslations('browse');
+  const tCommon = useTranslations('common');
   const [stones, setStones] = useState<Stone[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
+
+  const stoneTypeLabels: Record<string, Record<string, string>> = {
+    'sintered stone': { en: 'Sintered Stone', zh: '岩板', fr: 'Pierre frittée' },
+    'sintered': { en: 'Sintered Stone', zh: '岩板', fr: 'Pierre frittée' },
+    'quartz': { en: 'Quartz', zh: '石英石', fr: 'Quartz' },
+    'granite': { en: 'Granite', zh: '花岗岩', fr: 'Granit' },
+    'marble': { en: 'Marble', zh: '大理石', fr: 'Marbre' },
+    'quartzite': { en: 'Quartzite', zh: '石英岩', fr: 'Quartzite' },
+    'porcelain': { en: 'Porcelain', zh: '瓷砖', fr: 'Porcelaine' },
+  };
+
+  const getStoneTypeLabel = (value: string): string => {
+    const key = value.toLowerCase();
+    return stoneTypeLabels[key]?.[locale] || stoneTypeLabels[key]?.en || value;
+  };
+
+  const STONE_TYPES = [
+    { value: '', label: t('allTypes') },
+    { value: 'sintered stone', label: getStoneTypeLabel('sintered stone') },
+    { value: 'quartz', label: getStoneTypeLabel('quartz') },
+    { value: 'granite', label: getStoneTypeLabel('granite') },
+    { value: 'marble', label: getStoneTypeLabel('marble') },
+    { value: 'quartzite', label: getStoneTypeLabel('quartzite') },
+    { value: 'porcelain', label: getStoneTypeLabel('porcelain') },
+  ];
 
   useEffect(() => {
     const fetchStones = async () => {
@@ -54,7 +70,7 @@ export default function BrowsePage() {
   }, []);
 
   const getStoneName = (name: Stone['name']): string => {
-    if (!name) return 'Stone';
+    if (!name) return locale === 'zh' ? '石材' : 'Stone';
     if (typeof name === 'string') {
       try {
         const parsed = JSON.parse(name);
@@ -82,6 +98,21 @@ export default function BrowsePage() {
     groupedStones[stone.brand].push(stone);
   });
 
+  const stonesCountLabel = (count: number) => {
+    if (locale === 'zh') return `${count} 款石材`;
+    if (locale === 'fr') return `${count} pierre${count > 1 ? 's' : ''}`;
+    return `${count} stone${count > 1 ? 's' : ''}`;
+  };
+
+  const disclaimerText = locale === 'zh'
+    ? '图片仅供参考。实际石材产品的颜色、纹理和质感可能有所不同。每块石材都是独一无二的。请访问我们的展厅或联系我们查看实物样品。所有价格均为每块石板（3.2m x 1.6m，20mm厚）。'
+    : locale === 'fr'
+    ? 'Les images sont fournies à titre indicatif uniquement. Les produits en pierre réels peuvent varier en couleur, motif et texture. Chaque dalle est unique. Veuillez visiter notre showroom ou nous contacter pour voir des échantillons réels. Tous les prix sont par dalle (3,2m x 1,6m, 20mm d\'épaisseur).'
+    : 'Images are for reference only. Actual stone products may vary in color, pattern, and texture. Each slab is unique. Please visit our showroom or contact us to see actual samples. All prices are per slab (3.2m x 1.6m, 20mm thick).';
+
+  const perSlabText = locale === 'zh' ? '/块' : locale === 'fr' ? '/dalle' : '/slab';
+  const quickViewText = locale === 'zh' ? '快速查看' : locale === 'fr' ? 'Aperçu rapide' : 'Quick View';
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -90,7 +121,7 @@ export default function BrowsePage() {
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
-          <span className="text-sm">Loading stones...</span>
+          <span className="text-sm">{tCommon('loading')}</span>
         </div>
       </div>
     );
@@ -101,10 +132,8 @@ export default function BrowsePage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-stone-900">{t('title') || 'Browse Stones'}</h1>
-          <p className="mt-2 text-stone-500 text-sm">
-            {t('subtitle') || 'Explore our collection of premium stone surfaces'}
-          </p>
+          <h1 className="text-3xl font-bold text-stone-900">{t('title')}</h1>
+          <p className="mt-2 text-stone-500 text-sm">{t('subtitle')}</p>
         </div>
 
         {/* Search & Filter */}
@@ -115,7 +144,7 @@ export default function BrowsePage() {
             </svg>
             <input
               type="text"
-              placeholder={t('searchPlaceholder') || 'Search by brand, model, or name...'}
+              placeholder={t('searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 border border-stone-200 rounded-lg text-sm text-stone-900 placeholder:text-stone-400 focus:ring-1 focus:ring-amber-300 focus:border-amber-300 bg-white"
@@ -142,9 +171,7 @@ export default function BrowsePage() {
           <svg className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p className="text-xs text-stone-500">
-            Images are for reference only. Actual stone products may vary in color, pattern, and texture. Each slab is unique. Please visit our showroom or contact us to see actual samples. All prices are per slab (3.2m x 1.6m, 20mm thick).
-          </p>
+          <p className="text-xs text-stone-500">{disclaimerText}</p>
         </div>
 
         {/* Stones grouped by supplier */}
@@ -154,7 +181,7 @@ export default function BrowsePage() {
               <div key={brand}>
                 <div className="flex items-center gap-3 mb-4">
                   <h2 className="text-lg font-bold text-stone-900">{brand}</h2>
-                  <span className="text-xs text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">{brandStones.length} stones</span>
+                  <span className="text-xs text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">{stonesCountLabel(brandStones.length)}</span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                   {brandStones.map((stone) => (
@@ -178,7 +205,7 @@ export default function BrowsePage() {
                           </div>
                         )}
                         <span className="absolute top-2 right-2 px-2 py-0.5 text-[10px] font-medium bg-white/90 text-stone-600 rounded-full capitalize backdrop-blur-sm">
-                          {stone.stoneType}
+                          {getStoneTypeLabel(stone.stoneType)}
                         </span>
                       </div>
                       <div className="p-3">
@@ -188,7 +215,7 @@ export default function BrowsePage() {
                         {stone.pricePerSlab && (
                           <p className="text-sm font-bold text-amber-700 mt-2">
                             ${parseFloat(stone.pricePerSlab).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                            <span className="text-[10px] font-normal text-stone-400 ml-1">/slab</span>
+                            <span className="text-[10px] font-normal text-stone-400 ml-1">{perSlabText}</span>
                           </p>
                         )}
                       </div>
@@ -203,9 +230,11 @@ export default function BrowsePage() {
             <svg className="mx-auto w-12 h-12 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <h3 className="mt-3 text-sm font-medium text-stone-900">No stones found</h3>
+            <h3 className="mt-3 text-sm font-medium text-stone-900">{t('noResults')}</h3>
             <p className="mt-1 text-xs text-stone-500">
-              {searchTerm || filterType ? 'Try adjusting your search or filter' : 'No stones available at the moment'}
+              {searchTerm || filterType
+                ? (locale === 'zh' ? '请尝试调整搜索或筛选条件' : locale === 'fr' ? 'Essayez d\'ajuster votre recherche ou filtre' : 'Try adjusting your search or filter')
+                : (locale === 'zh' ? '暂时没有可用的石材' : locale === 'fr' ? 'Aucune pierre disponible pour le moment' : 'No stones available at the moment')}
             </p>
           </div>
         )}

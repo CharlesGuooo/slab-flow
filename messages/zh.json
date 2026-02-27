@@ -68,7 +68,7 @@
     "type": "石材类型",
     "pricePerSlab": "每块价格",
     "description": "描述",
-    "imageDisclaimer": "注意：图片仅供参考。实际石材外观可能有所不同。"
+    "imageDisclaimer": "图片仅供参考。实际石材的颜色、纹理和质感可能有所不同。请联系我们查看实物样品。"
   },
   "auth": {
     "registerTitle": "创建账户",

@@ -27,6 +27,8 @@ export default function ThreeDGenPage() {
     caption?: string;
   } | null>(null);
   const [selectedModel, setSelectedModel] = useState<'Marble 0.1-mini' | 'Marble 0.1-plus'>('Marble 0.1-mini');
+  const [balance, setBalance] = useState<number | null>(null);
+  const [balanceNotice, setBalanceNotice] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -42,6 +44,65 @@ export default function ThreeDGenPage() {
     checkAuth();
   }, []);
 
+  // Fetch balance
+  const fetchBalance = useCallback(async () => {
+    try {
+      const res = await fetch('/api/client/balance');
+      if (res.ok) {
+        const data = await res.json();
+        setBalance(data.balance);
+      }
+    } catch (err) {
+      console.error('Failed to fetch balance:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchBalance();
+    }
+  }, [isAuthenticated, fetchBalance]);
+
+  // Deduct credits
+  const deductCredits = useCallback(async (action: string) => {
+    try {
+      const res = await fetch('/api/client/balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setBalance(data.balance);
+        const costStr = `$${data.cost.toFixed(2)}`;
+        const balStr = `$${data.balance.toFixed(2)}`;
+        const label = action === '3d_quick'
+          ? (locale === 'zh' ? '3D快速预览' : locale === 'fr' ? '3D aperçu rapide' : '3D Quick Preview')
+          : (locale === 'zh' ? '3D高质量生成' : locale === 'fr' ? '3D haute qualité' : '3D High Quality');
+        const notice = locale === 'zh'
+          ? `${label} 消耗 ${costStr} | 余额: ${balStr}`
+          : locale === 'fr'
+          ? `${label} coût ${costStr} | Solde: ${balStr}`
+          : `${label} cost ${costStr} | Balance: ${balStr}`;
+        setBalanceNotice(notice);
+        setTimeout(() => setBalanceNotice(null), 6000);
+        return true;
+      } else if (res.status === 402) {
+        const notice = locale === 'zh'
+          ? `余额不足！当前余额: $${data.balance.toFixed(2)}，需要: $${data.required.toFixed(2)}`
+          : locale === 'fr'
+          ? `Solde insuffisant ! Solde: $${data.balance.toFixed(2)}, requis: $${data.required.toFixed(2)}`
+          : `Insufficient balance! Balance: $${data.balance.toFixed(2)}, required: $${data.required.toFixed(2)}`;
+        setBalanceNotice(notice);
+        setTimeout(() => setBalanceNotice(null), 8000);
+        return false;
+      }
+    } catch (err) {
+      console.error('Failed to deduct credits:', err);
+    }
+    return true;
+  }, [locale]);
+
   // Cleanup polling on unmount
   useEffect(() => {
     return () => {
@@ -52,8 +113,8 @@ export default function ThreeDGenPage() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) { alert('Please select an image file'); return; }
-    if (file.size > 10 * 1024 * 1024) { alert('Image must be less than 10MB'); return; }
+    if (!file.type.startsWith('image/')) { alert(locale === 'zh' ? '请选择图片文件' : 'Please select an image file'); return; }
+    if (file.size > 10 * 1024 * 1024) { alert(locale === 'zh' ? '图片不能超过10MB' : 'Image must be less than 10MB'); return; }
     setSelectedFile(file);
     setPreviewUrl(URL.createObjectURL(file));
     setResult(null);
@@ -75,30 +136,25 @@ export default function ThreeDGenPage() {
   const pollOperation = useCallback(async (operationId: string) => {
     setStatus('polling');
     let pollCount = 0;
-    const maxPolls = 120; // 10 minutes max (5s interval)
+    const maxPolls = 120;
 
     pollingRef.current = setInterval(async () => {
       pollCount++;
       if (pollCount > maxPolls) {
         if (pollingRef.current) clearInterval(pollingRef.current);
         setStatus('error');
-        setErrorMessage('Generation timed out. Please try again.');
+        setErrorMessage(locale === 'zh' ? '生成超时，请重试。' : 'Generation timed out. Please try again.');
         return;
       }
 
-      // Update progress based on model
-      const estimatedTotal = selectedModel === 'Marble 0.1-mini' ? 12 : 60; // polls
+      const estimatedTotal = selectedModel === 'Marble 0.1-mini' ? 12 : 60;
       const newProgress = Math.min(95, (pollCount / estimatedTotal) * 100);
       setProgress(newProgress);
 
       if (pollCount % 3 === 0) {
-        const messages = [
-          'Analyzing image structure...',
-          'Reconstructing 3D geometry...',
-          'Generating Gaussian splats...',
-          'Optimizing scene quality...',
-          'Finalizing 3D scene...',
-        ];
+        const messages = locale === 'zh'
+          ? ['分析图片结构...', '重建3D几何体...', '生成高斯点云...', '优化场景质量...', '最终处理中...']
+          : ['Analyzing image structure...', 'Reconstructing 3D geometry...', 'Generating Gaussian splats...', 'Optimizing scene quality...', 'Finalizing 3D scene...'];
         setStatusMessage(messages[Math.min(Math.floor(pollCount / 3) - 1, messages.length - 1)]);
       }
 
@@ -116,6 +172,8 @@ export default function ThreeDGenPage() {
             thumbnailUrl: data.thumbnailUrl,
             caption: data.caption,
           });
+          // Refresh balance after completion
+          fetchBalance();
         } else if (data.error) {
           if (pollingRef.current) clearInterval(pollingRef.current);
           setStatus('error');
@@ -125,18 +183,23 @@ export default function ThreeDGenPage() {
         // Network error, continue polling
       }
     }, 5000);
-  }, [selectedModel]);
+  }, [selectedModel, locale, fetchBalance]);
 
   const handleGenerate = async () => {
     if (!selectedFile) return;
+
+    // Deduct credits first
+    const action = selectedModel === 'Marble 0.1-mini' ? '3d_quick' : '3d_high';
+    const allowed = await deductCredits(action);
+    if (!allowed) return;
+
     setStatus('uploading');
     setProgress(0);
     setErrorMessage('');
     setResult(null);
-    setStatusMessage('Uploading image...');
+    setStatusMessage(locale === 'zh' ? '上传图片中...' : 'Uploading image...');
 
     try {
-      // Step 1: Upload image to get a URL
       const formData = new FormData();
       formData.append('file', selectedFile);
       const uploadResponse = await fetch('/api/upload', { method: 'POST', body: formData });
@@ -148,20 +211,17 @@ export default function ThreeDGenPage() {
       const uploadData = await uploadResponse.json();
       setProgress(10);
 
-      // Step 2: Convert to base64 for World Labs API
       const reader = new FileReader();
       const imageBase64 = await new Promise<string>((resolve) => {
         reader.onload = () => {
           const result = reader.result as string;
-          // Send full data URL - the API route will handle stripping the prefix
           resolve(result);
         };
         reader.readAsDataURL(selectedFile);
       });
 
-      // Step 3: Start 3D generation
       setStatus('generating');
-      setStatusMessage('Starting 3D scene generation...');
+      setStatusMessage(locale === 'zh' ? '启动3D场景生成...' : 'Starting 3D scene generation...');
       setProgress(15);
 
       const genResponse = await fetch('/api/3d-gen', {
@@ -181,9 +241,10 @@ export default function ThreeDGenPage() {
       }
 
       if (genData.operationId) {
-        // Step 4: Poll for completion
         setProgress(20);
-        setStatusMessage(`Generating 3D scene (${genData.estimatedTime})...`);
+        setStatusMessage(locale === 'zh'
+          ? `生成3D场景中 (${genData.estimatedTime})...`
+          : `Generating 3D scene (${genData.estimatedTime})...`);
         pollOperation(genData.operationId);
       } else {
         throw new Error('No operation ID returned');
@@ -194,6 +255,10 @@ export default function ThreeDGenPage() {
       setErrorMessage(err instanceof Error ? err.message : 'Failed to generate 3D scene');
     }
   };
+
+  // Cost labels
+  const quickCost = '$0.50';
+  const highCost = '$2.00';
 
   // Not authenticated
   if (isAuthenticated === false) {
@@ -238,6 +303,23 @@ export default function ThreeDGenPage() {
 
   return (
     <div className="max-w-4xl mx-auto py-12 px-4">
+      {/* Balance notice toast */}
+      {balanceNotice && (
+        <div className="fixed top-20 right-4 z-50">
+          <div className="bg-white border border-amber-200 shadow-lg rounded-lg px-4 py-3 flex items-center gap-2">
+            <svg className="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-sm text-stone-700">{balanceNotice}</span>
+            <button onClick={() => setBalanceNotice(null)} className="ml-2 text-stone-400 hover:text-stone-600">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="text-center mb-12">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-amber-50 border border-amber-100 rounded-full mb-4">
@@ -248,6 +330,18 @@ export default function ThreeDGenPage() {
         </div>
         <h1 className="text-3xl md:text-4xl font-bold text-stone-900 tracking-tight mb-3">{t('title')}</h1>
         <p className="text-stone-500 max-w-xl mx-auto">{t('subtitle')}</p>
+        
+        {/* Balance display */}
+        {balance !== null && (
+          <div className="mt-4 inline-flex items-center gap-1.5 px-4 py-1.5 bg-amber-50 border border-amber-200 rounded-full">
+            <svg className="w-3.5 h-3.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-xs font-medium text-amber-800">
+              {locale === 'zh' ? '余额' : locale === 'fr' ? 'Solde' : 'Balance'}: ${balance.toFixed(2)}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Main Card */}
@@ -255,7 +349,9 @@ export default function ThreeDGenPage() {
         <div className="p-8">
           {/* Model Selection */}
           <div className="mb-6">
-            <label className="text-sm font-medium text-stone-700 mb-3 block">Generation Quality</label>
+            <label className="text-sm font-medium text-stone-700 mb-3 block">
+              {locale === 'zh' ? '生成质量' : locale === 'fr' ? 'Qualité de génération' : 'Generation Quality'}
+            </label>
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setSelectedModel('Marble 0.1-mini')}
@@ -269,9 +365,16 @@ export default function ThreeDGenPage() {
                   <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
-                  <span className="text-sm font-semibold text-stone-900">Quick Preview</span>
+                  <span className="text-sm font-semibold text-stone-900">
+                    {locale === 'zh' ? '快速预览' : locale === 'fr' ? 'Aperçu rapide' : 'Quick Preview'}
+                  </span>
                 </div>
-                <p className="text-xs text-stone-500">~30 seconds • Draft quality</p>
+                <p className="text-xs text-stone-500">
+                  {locale === 'zh' ? '~30秒 • 草稿质量' : '~30 seconds • Draft quality'}
+                </p>
+                <p className="text-xs font-semibold text-amber-700 mt-1">
+                  {locale === 'zh' ? `费用: ${quickCost}` : locale === 'fr' ? `Coût: ${quickCost}` : `Cost: ${quickCost}`}
+                </p>
               </button>
               <button
                 onClick={() => setSelectedModel('Marble 0.1-plus')}
@@ -285,9 +388,16 @@ export default function ThreeDGenPage() {
                   <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                   </svg>
-                  <span className="text-sm font-semibold text-stone-900">High Quality</span>
+                  <span className="text-sm font-semibold text-stone-900">
+                    {locale === 'zh' ? '高质量' : locale === 'fr' ? 'Haute qualité' : 'High Quality'}
+                  </span>
                 </div>
-                <p className="text-xs text-stone-500">~5 minutes • Production quality</p>
+                <p className="text-xs text-stone-500">
+                  {locale === 'zh' ? '~5分钟 • 生产级质量' : '~5 minutes • Production quality'}
+                </p>
+                <p className="text-xs font-semibold text-amber-700 mt-1">
+                  {locale === 'zh' ? `费用: ${highCost}` : locale === 'fr' ? `Coût: ${highCost}` : `Cost: ${highCost}`}
+                </p>
               </button>
             </div>
           </div>
@@ -341,7 +451,7 @@ export default function ThreeDGenPage() {
 
           {/* Generate Button */}
           {status === 'idle' && (
-            <div className="mt-6 flex justify-center">
+            <div className="mt-6 flex flex-col items-center gap-2">
               <button
                 onClick={handleGenerate}
                 disabled={!selectedFile}
@@ -352,6 +462,13 @@ export default function ThreeDGenPage() {
                 </svg>
                 {t('generate')}
               </button>
+              <p className="text-xs text-stone-400">
+                {locale === 'zh'
+                  ? `本次生成将消耗 ${selectedModel === 'Marble 0.1-mini' ? quickCost : highCost}`
+                  : locale === 'fr'
+                  ? `Cette génération coûtera ${selectedModel === 'Marble 0.1-mini' ? quickCost : highCost}`
+                  : `This generation will cost ${selectedModel === 'Marble 0.1-mini' ? quickCost : highCost}`}
+              </p>
             </div>
           )}
 
@@ -385,13 +502,15 @@ export default function ThreeDGenPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div>
-                  <p className="text-sm font-medium text-red-800">Generation Failed</p>
+                  <p className="text-sm font-medium text-red-800">
+                    {locale === 'zh' ? '生成失败' : locale === 'fr' ? 'Échec de la génération' : 'Generation Failed'}
+                  </p>
                   <p className="text-sm text-red-600 mt-1">{errorMessage}</p>
                   <button
                     onClick={() => { setStatus('idle'); setErrorMessage(''); }}
                     className="mt-3 text-sm font-medium text-red-700 hover:text-red-800 underline"
                   >
-                    Try Again
+                    {locale === 'zh' ? '重试' : locale === 'fr' ? 'Réessayer' : 'Try Again'}
                   </button>
                 </div>
               </div>
@@ -402,12 +521,21 @@ export default function ThreeDGenPage() {
         {/* Completed Result */}
         {status === 'completed' && result && (
           <div className="border-t border-stone-100 p-8 bg-[#faf8f5]">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-2">
               <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <h3 className="font-semibold text-stone-900">3D Scene Generated Successfully!</h3>
+              <h3 className="font-semibold text-stone-900">
+                {locale === 'zh' ? '3D场景生成成功！' : locale === 'fr' ? 'Scène 3D générée avec succès !' : '3D Scene Generated Successfully!'}
+              </h3>
             </div>
+
+            {/* Balance after generation */}
+            {balance !== null && (
+              <p className="text-xs text-amber-700 mb-4">
+                {locale === 'zh' ? `当前余额: $${balance.toFixed(2)}` : locale === 'fr' ? `Solde actuel: $${balance.toFixed(2)}` : `Current balance: $${balance.toFixed(2)}`}
+              </p>
+            )}
             
             {result.caption && (
               <p className="text-sm text-stone-600 mb-4 italic">&ldquo;{result.caption}&rdquo;</p>
@@ -442,14 +570,14 @@ export default function ThreeDGenPage() {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  Download 3D File
+                  {locale === 'zh' ? '下载3D文件' : locale === 'fr' ? 'Télécharger fichier 3D' : 'Download 3D File'}
                 </a>
               )}
               <button
                 onClick={() => { setStatus('idle'); setResult(null); setSelectedFile(null); setPreviewUrl(null); setProgress(0); }}
                 className="inline-flex items-center gap-2 px-6 py-3 text-sm font-medium text-stone-500 hover:text-stone-700 transition-all"
               >
-                Generate Another
+                {locale === 'zh' ? '再次生成' : locale === 'fr' ? 'Générer un autre' : 'Generate Another'}
               </button>
             </div>
           </div>

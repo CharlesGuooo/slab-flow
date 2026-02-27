@@ -84,15 +84,6 @@ export function ClientNav({ translations, features, loginRequiredText, loginRequ
             {translations.chat}
           </Link>
         )}
-        {features.calculator && (
-          <Link
-            href={`/${locale}/calculator`}
-            className={navLinkClass('/calculator')}
-            onClick={(e) => handleProtectedClick(e, `/${locale}/calculator`)}
-          >
-            {translations.calculator}
-          </Link>
-        )}
         {features['3d-reconstruction'] && (
           <Link
             href={`/${locale}/3d-gen`}
@@ -158,12 +149,6 @@ export function ClientNav({ translations, features, loginRequiredText, loginRequ
               <Link href={`/${locale}/chat`} className="block text-sm font-medium text-stone-700 hover:text-amber-700 py-2"
                 onClick={(e) => { handleProtectedClick(e, `/${locale}/chat`); setMobileMenuOpen(false); }}>
                 {translations.chat}
-              </Link>
-            )}
-            {features.calculator && (
-              <Link href={`/${locale}/calculator`} className="block text-sm font-medium text-stone-700 hover:text-amber-700 py-2"
-                onClick={(e) => { handleProtectedClick(e, `/${locale}/calculator`); setMobileMenuOpen(false); }}>
-                {translations.calculator}
               </Link>
             )}
             {features['3d-reconstruction'] && (

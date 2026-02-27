@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   User,
@@ -15,6 +15,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import { useLocalePath } from '@/lib/hooks/useLocalePath';
+import { useTranslations } from 'next-intl';
 
 interface UserInfo {
   id: number;
@@ -42,21 +43,27 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-700',
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  pending_quote: 'Pending Quote',
-  quoted: 'Quoted',
-  in_progress: 'In Progress',
-  completed: 'Completed',
-  cancelled: 'Cancelled',
-};
-
 export default function AccountPage() {
   const router = useRouter();
+  const params = useParams();
+  const locale = (params?.locale as string) || 'en';
   const localePath = useLocalePath();
+  const t = useTranslations('account');
+  const tOrder = useTranslations('order');
+  const tNav = useTranslations('nav');
+  const tCommon = useTranslations('common');
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<UserInfo | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  const STATUS_LABELS: Record<string, string> = {
+    pending_quote: tOrder('status.pending_quote'),
+    quoted: tOrder('status.quoted'),
+    in_progress: tOrder('status.in_progress'),
+    completed: tOrder('status.completed'),
+    cancelled: tOrder('status.cancelled'),
+  };
 
   useEffect(() => {
     const fetchAccount = async () => {
@@ -75,14 +82,14 @@ export default function AccountPage() {
         setOrders(data.orders || []);
       } catch (err) {
         console.error('Error fetching account:', err);
-        setError('Failed to load account');
+        setError(locale === 'zh' ? '加载账户信息失败' : locale === 'fr' ? 'Échec du chargement du compte' : 'Failed to load account');
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchAccount();
-  }, [router]);
+  }, [router, locale, localePath]);
 
   const handleLogout = async () => {
     try {
@@ -94,7 +101,8 @@ export default function AccountPage() {
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
+    const dateLocale = locale === 'zh' ? 'zh-CN' : locale === 'fr' ? 'fr-FR' : 'en-US';
+    return new Date(dateStr).toLocaleDateString(dateLocale, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -109,7 +117,7 @@ export default function AccountPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
       </div>
     );
   }
@@ -131,10 +139,12 @@ export default function AccountPage() {
     return null;
   }
 
+  const customerLabel = locale === 'zh' ? '客户' : locale === 'fr' ? 'Client' : 'Customer';
+
   return (
     <div className="py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-8">My Account</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-8">{t('title')}</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* User Info Card */}
@@ -148,7 +158,7 @@ export default function AccountPage() {
                   <h2 className="text-lg font-semibold text-gray-900">
                     {user.username}
                   </h2>
-                  <p className="text-sm text-gray-500">Customer</p>
+                  <p className="text-sm text-gray-500">{customerLabel}</p>
                 </div>
               </div>
 
@@ -166,7 +176,7 @@ export default function AccountPage() {
                 <div className="flex items-center gap-3 text-sm">
                   <Coins className="h-4 w-4 text-yellow-500" />
                   <span className="text-gray-600">
-                    ${parseFloat(user.aiCredits || '0').toFixed(2)} AI Credits
+                    ${parseFloat(user.aiCredits || '0').toFixed(2)} {t('aiCredits')}
                   </span>
                 </div>
               </div>
@@ -177,7 +187,7 @@ export default function AccountPage() {
                   className="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100"
                 >
                   <LogOut className="h-4 w-4 mr-2" />
-                  Sign Out
+                  {tNav('logout')}
                 </button>
               </div>
             </div>
@@ -189,14 +199,14 @@ export default function AccountPage() {
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                   <Package className="h-5 w-5 text-gray-400" />
-                  My Orders
+                  {t('orders')}
                 </h2>
                 <Link
                   href={localePath('/account/new-quote')}
                   className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  New Quote Request
+                  {t('newQuote')}
                 </Link>
               </div>
 
@@ -211,10 +221,10 @@ export default function AccountPage() {
                       <div className="flex items-start justify-between">
                         <div>
                           <p className="font-medium text-gray-900">
-                            Order #{order.id}
+                            {locale === 'zh' ? `订单 #${order.id}` : locale === 'fr' ? `Commande #${order.id}` : `Order #${order.id}`}
                           </p>
                           <p className="text-sm text-gray-600 mt-1">
-                            {order.stoneName || order.stoneSelectionText || 'Custom Selection'}
+                            {order.stoneName || order.stoneSelectionText || (locale === 'zh' ? '自定义选择' : locale === 'fr' ? 'Sélection personnalisée' : 'Custom Selection')}
                           </p>
                           <p className="text-xs text-gray-400 mt-1">
                             {formatDate(order.createdAt)}
@@ -235,12 +245,12 @@ export default function AccountPage() {
               ) : (
                 <div className="text-center py-8">
                   <Package className="mx-auto h-12 w-12 text-gray-300" />
-                  <p className="mt-2 text-sm text-gray-500">No orders yet</p>
+                  <p className="mt-2 text-sm text-gray-500">{t('noOrders')}</p>
                   <Link
                     href={localePath('/browse')}
                     className="mt-4 inline-flex items-center text-sm text-blue-600 hover:text-blue-700"
                   >
-                    Browse stones to get started
+                    {locale === 'zh' ? '浏览石材开始选购' : locale === 'fr' ? 'Parcourir les pierres pour commencer' : 'Browse stones to get started'}
                   </Link>
                 </div>
               )}

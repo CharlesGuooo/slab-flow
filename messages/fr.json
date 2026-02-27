@@ -68,7 +68,7 @@
     "type": "Type de pierre",
     "pricePerSlab": "Prix par dalle",
     "description": "Description",
-    "imageDisclaimer": "Remarque : Les images sont à titre indicatif. L'apparence réelle de la pierre peut varier."
+    "imageDisclaimer": "L'image est fournie à titre indicatif. La pierre réelle peut varier en couleur, motif et texture. Veuillez nous contacter pour voir des échantillons réels."
   },
   "auth": {
     "registerTitle": "Créer un compte",

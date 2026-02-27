@@ -68,7 +68,7 @@
     "type": "Stone Type",
     "pricePerSlab": "Price per Slab",
     "description": "Description",
-    "imageDisclaimer": "Note: Images are for illustration purposes. Actual stone appearance may vary."
+    "imageDisclaimer": "Image is for representation purposes. Actual stone may vary in color, pattern, and texture. Please contact us to see actual samples."
   },
   "auth": {
     "registerTitle": "Create an Account",

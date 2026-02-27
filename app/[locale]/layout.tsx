@@ -166,11 +166,6 @@ export default async function LocaleLayout({
                       {t('chat')}
                     </Link>
                   )}
-                  {tenant?.featureCalculator && (
-                    <Link href={`/${locale}/calculator`} className="block text-stone-400 hover:text-amber-400 transition-colors">
-                      {t('calculator')}
-                    </Link>
-                  )}
                   {tenant?.feature3dReconstruction && (
                     <Link href={`/${locale}/3d-gen`} className="block text-stone-400 hover:text-amber-400 transition-colors">
                       {t('threeDGen')}
