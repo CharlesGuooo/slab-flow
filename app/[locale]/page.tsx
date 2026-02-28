@@ -276,17 +276,250 @@ export default async function TenantLandingPage({ params }: { params: { locale: 
               </p>
             </div>
 
-            {/* Feature 3 */}
+            {/* Feature 3 - AI Visualization */}
             <div className="bg-white p-8 border border-stone-100 hover:shadow-md transition-all duration-300 group">
               <div className="w-12 h-12 bg-[#f5f0ea] rounded-sm flex items-center justify-center mb-6 group-hover:bg-amber-50 transition-colors">
                 <svg className="w-6 h-6 text-amber-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-stone-900 mb-3">{t('instantPricing')}</h3>
+              <h3 className="text-lg font-semibold text-stone-900 mb-3">{t('aiVisualization')}</h3>
               <p className="text-sm text-stone-500 leading-relaxed">
-                {t('instantPricingDesc')}
+                {t('aiVisualizationDesc')}
               </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================ */}
+      {/* AI FEATURES TUTORIAL - How to use AI Assistant & 3D Scene */}
+      {/* ============================================ */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-14">
+            <span className="text-amber-700 text-xs font-medium uppercase tracking-[0.2em]">
+              {locale === 'zh' ? 'AI功能指南' : locale === 'fr' ? 'Guide des fonctionnalit\u00e9s IA' : 'AI Features Guide'}
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold text-stone-900 mt-3 mb-4 tracking-tight">
+              {locale === 'zh' ? '体验智能石材选购' : locale === 'fr' ? 'Exp\u00e9rience d\'achat intelligente' : 'Experience Smart Stone Shopping'}
+            </h2>
+            <div className="w-12 h-[2px] bg-amber-700 mx-auto" />
+          </div>
+
+          {/* AI Assistant Tutorial */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
+            <div className="flex flex-col justify-center">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-100 rounded-full w-fit mb-4">
+                <svg className="w-4 h-4 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <span className="text-xs font-medium text-amber-800">
+                  {locale === 'zh' ? 'AI石材顾问' : locale === 'fr' ? 'Consultant IA' : 'AI Stone Consultant'}
+                </span>
+              </div>
+              <h3 className="text-2xl font-bold text-stone-900 mb-4">
+                {locale === 'zh' ? '与AI助手对话，找到完美石材' : locale === 'fr' ? 'Discutez avec l\'IA pour trouver la pierre parfaite' : 'Chat with AI to Find Your Perfect Stone'}
+              </h3>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-7 h-7 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-xs font-bold text-amber-800">1</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-stone-800">
+                      {locale === 'zh' ? '描述您的项目需求' : locale === 'fr' ? 'D\u00e9crivez votre projet' : 'Describe Your Project'}
+                    </p>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      {locale === 'zh' ? '告诉AI您的预算、风格偏好和安装位置' : locale === 'fr' ? 'Indiquez votre budget, style et emplacement' : 'Tell the AI your budget, style preferences, and installation location'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-7 h-7 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-xs font-bold text-amber-800">2</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-stone-800">
+                      {locale === 'zh' ? '上传您的空间照片' : locale === 'fr' ? 'T\u00e9l\u00e9chargez une photo de votre espace' : 'Upload a Photo of Your Space'}
+                    </p>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      {locale === 'zh' ? '拍一张您的厨房或卫生间照片，AI将分析您的空间' : locale === 'fr' ? 'Prenez une photo de votre cuisine ou salle de bain' : 'Take a photo of your kitchen or bathroom for AI analysis'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-7 h-7 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-xs font-bold text-amber-800">3</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-stone-800">
+                      {locale === 'zh' ? '获取AI效果图预览' : locale === 'fr' ? 'Obtenez un aper\u00e7u IA' : 'Get AI-Rendered Previews'}
+                    </p>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      {locale === 'zh' ? 'AI将渲染石材在您空间中的逼真效果图' : locale === 'fr' ? 'L\'IA rendra un aper\u00e7u r\u00e9aliste de la pierre dans votre espace' : 'AI renders a photorealistic preview of the stone in your space'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <Link
+                href={`/${locale}/chat`}
+                className="inline-flex items-center gap-2 mt-6 px-6 py-2.5 text-sm font-medium text-white bg-stone-900 rounded-md hover:bg-stone-800 transition-all w-fit"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                {locale === 'zh' ? '开始对话' : locale === 'fr' ? 'Commencer la conversation' : 'Start Chatting'}
+              </Link>
+            </div>
+            <div className="bg-[#faf8f5] rounded-xl border border-stone-100 p-6 flex flex-col justify-center">
+              <div className="space-y-3">
+                {/* Mock chat bubbles */}
+                <div className="flex gap-2 justify-end">
+                  <div className="bg-stone-900 text-white rounded-xl px-4 py-2.5 max-w-[80%]">
+                    <p className="text-sm">
+                      {locale === 'zh' ? '我想给厨房岛台换一块白色大理石台面，预算在$2000左右' : locale === 'fr' ? 'Je cherche un comptoir en marbre blanc pour mon \u00eelot de cuisine, budget ~$2000' : 'I want a white marble countertop for my kitchen island, budget around $2000'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <div className="w-7 h-7 bg-[#f5f0ea] rounded-full flex items-center justify-center flex-shrink-0">
+                    <svg className="w-3.5 h-3.5 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                  </div>
+                  <div className="bg-white border border-stone-100 rounded-xl px-4 py-2.5 max-w-[80%]">
+                    <p className="text-sm text-stone-700">
+                      {locale === 'zh' ? '根据您的预算和风格，我推荐Calacatta Gold系列。想看看它在您厨房中的效果吗？' : locale === 'fr' ? 'Selon votre budget et style, je recommande le Calacatta Gold. Voulez-vous voir un aper\u00e7u dans votre cuisine ?' : 'Based on your budget and style, I recommend our Calacatta Gold. Would you like to see a preview in your kitchen?'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <div className="bg-stone-900 text-white rounded-xl px-4 py-2.5">
+                    <p className="text-sm">
+                      {locale === 'zh' ? '好的，请生成效果图！' : locale === 'fr' ? 'Oui, g\u00e9n\u00e9rez un aper\u00e7u !' : 'Yes, generate a preview!'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <div className="w-7 h-7 bg-[#f5f0ea] rounded-full flex items-center justify-center flex-shrink-0">
+                    <svg className="w-3.5 h-3.5 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 max-w-[80%]">
+                    <div className="flex items-center gap-2 mb-1">
+                      <svg className="w-3.5 h-3.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-xs font-medium text-amber-800">
+                        {locale === 'zh' ? 'AI效果图已生成' : locale === 'fr' ? 'Visualisation IA g\u00e9n\u00e9r\u00e9e' : 'AI Visualization Generated'}
+                      </span>
+                    </div>
+                    <div className="w-full h-24 bg-gradient-to-br from-stone-200 via-amber-100 to-stone-300 rounded-lg flex items-center justify-center">
+                      <svg className="w-8 h-8 text-amber-600/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 3D Scene Tutorial */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            <div className="bg-[#faf8f5] rounded-xl border border-stone-100 p-6 flex flex-col justify-center order-2 lg:order-1">
+              <div className="space-y-4">
+                <div className="bg-white border border-stone-100 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <svg className="w-5 h-5 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
+                    </svg>
+                    <span className="text-sm font-semibold text-stone-800">
+                      {locale === 'zh' ? '3D场景生成器' : locale === 'fr' ? 'G\u00e9n\u00e9rateur de sc\u00e8ne 3D' : '3D Scene Generator'}
+                    </span>
+                  </div>
+                  <div className="w-full h-32 bg-gradient-to-br from-stone-100 via-amber-50 to-stone-200 rounded-lg flex items-center justify-center relative overflow-hidden">
+                    <div className="absolute inset-0 bg-[conic-gradient(from_0deg,transparent,rgba(180,140,100,0.1),transparent,rgba(180,140,100,0.05),transparent)] animate-spin" style={{animationDuration: '8s'}} />
+                    <svg className="w-12 h-12 text-amber-600/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
+                    </svg>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <div className="flex-1 bg-stone-100 rounded-full h-1.5">
+                      <div className="bg-amber-500 h-1.5 rounded-full w-[75%]" />
+                    </div>
+                    <span className="text-[10px] text-stone-400">75%</span>
+                  </div>
+                  <p className="text-xs text-stone-500 mt-1">
+                    {locale === 'zh' ? '正在重建3D几何体...' : locale === 'fr' ? 'Reconstruction de la g\u00e9om\u00e9trie 3D...' : 'Reconstructing 3D geometry...'}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-col justify-center order-1 lg:order-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-100 rounded-full w-fit mb-4">
+                <svg className="w-4 h-4 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
+                </svg>
+                <span className="text-xs font-medium text-amber-800">
+                  {locale === 'zh' ? '3D沉浸式体验' : locale === 'fr' ? 'Exp\u00e9rience 3D immersive' : 'Immersive 3D Experience'}
+                </span>
+              </div>
+              <h3 className="text-2xl font-bold text-stone-900 mb-4">
+                {locale === 'zh' ? '将效果图转化为3D沉浸式场景' : locale === 'fr' ? 'Transformez les aper\u00e7us en sc\u00e8nes 3D immersives' : 'Transform Previews into Immersive 3D Scenes'}
+              </h3>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-7 h-7 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-xs font-bold text-amber-800">1</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-stone-800">
+                      {locale === 'zh' ? '选择AI效果图' : locale === 'fr' ? 'S\u00e9lectionnez une visualisation IA' : 'Select an AI Visualization'}
+                    </p>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      {locale === 'zh' ? '在AI助手中生成的效果图会自动保存到这里' : locale === 'fr' ? 'Les visualisations g\u00e9n\u00e9r\u00e9es dans l\'assistant IA sont automatiquement sauvegard\u00e9es ici' : 'Visualizations generated in AI Assistant are automatically saved here'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-7 h-7 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-xs font-bold text-amber-800">2</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-stone-800">
+                      {locale === 'zh' ? '选择体验模式' : locale === 'fr' ? 'Choisissez le mode d\'exp\u00e9rience' : 'Choose Experience Mode'}
+                    </p>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      {locale === 'zh' ? '快速预览(~30秒)或高清沉浸式体验(~5分钟)' : locale === 'fr' ? 'Aper\u00e7u rapide (~30s) ou exp\u00e9rience HD immersive (~5min)' : 'Quick Preview (~30s) or HD Immersive Experience (~5min)'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-7 h-7 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-xs font-bold text-amber-800">3</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-stone-800">
+                      {locale === 'zh' ? '探索互动式3D场景' : locale === 'fr' ? 'Explorez la sc\u00e8ne 3D interactive' : 'Explore the Interactive 3D Scene'}
+                    </p>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      {locale === 'zh' ? '在浏览器中360°旋转、缩放，身临其境感受设计效果' : locale === 'fr' ? 'Rotation 360\u00b0 et zoom dans votre navigateur pour une exp\u00e9rience immersive' : 'Rotate 360\u00b0 and zoom in your browser for a truly immersive experience'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <Link
+                href={`/${locale}/3d-gen`}
+                className="inline-flex items-center gap-2 mt-6 px-6 py-2.5 text-sm font-medium text-white bg-stone-900 rounded-md hover:bg-stone-800 transition-all w-fit"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
+                </svg>
+                {locale === 'zh' ? '体验3D场景' : locale === 'fr' ? 'Essayer la sc\u00e8ne 3D' : 'Try 3D Scene'}
+              </Link>
             </div>
           </div>
         </div>

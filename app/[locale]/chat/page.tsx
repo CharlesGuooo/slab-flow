@@ -23,21 +23,16 @@ const STORAGE_KEYS = {
   customerSpaceImage: 'chat_customer_space_image',
   generatedImages: 'chat_generated_images',
   messageImages: 'chat_message_images',
-  aiRenders: 'chat_ai_renders_for_3d', // NEW: saves renders for 3D scene page
+  aiRenders: 'chat_ai_renders_for_3d',
 };
 
 // Strip markdown formatting from AI responses
 function stripMarkdown(text: string): string {
-  // Remove bold **text** or __text__
   let cleaned = text.replace(/\*\*(.+?)\*\*/g, '$1');
   cleaned = cleaned.replace(/__(.+?)__/g, '$1');
-  // Remove italic *text* or _text_ (but not inside URLs or tags)
   cleaned = cleaned.replace(/(?<!\[)\*(.+?)\*(?!\])/g, '$1');
-  // Remove heading markers
   cleaned = cleaned.replace(/^#{1,6}\s+/gm, '');
-  // Remove bullet point dashes at start of lines
   cleaned = cleaned.replace(/^[-•]\s+/gm, '');
-  // Remove numbered list markers like "1. " at start of lines
   cleaned = cleaned.replace(/^\d+\.\s+/gm, '');
   return cleaned;
 }
@@ -58,7 +53,7 @@ export default function ChatPage() {
   const [generatingImages, setGeneratingImages] = useState<Record<string, boolean>>({});
   const [generatedImages, setGeneratedImages] = useState<Record<string, string>>({});
   const [generationErrors, setGenerationErrors] = useState<Record<string, string>>({});
-  // Track which messages had images attached
+  // Track which messages had images attached - keyed by message id
   const [messageImages, setMessageImages] = useState<Record<string, string>>({});
   // Lightbox state
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -69,10 +64,12 @@ export default function ChatPage() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // Track the image that's about to be sent with the next message
-  const pendingImageRef = useRef<string | null>(null);
-  // Track the last user message count to detect new user messages
-  const lastUserMsgCountRef = useRef(0);
+  // Track the image URL that's about to be sent with the next message
+  const pendingImageUrlRef = useRef<string | null>(null);
+  // Track the preview (base64) that's about to be sent with the next message
+  const pendingPreviewRef = useRef<string | null>(null);
+  // Track the last message count to detect new messages
+  const lastMsgCountRef = useRef(0);
   // Track if we've restored from session
   const restoredRef = useRef(false);
 
@@ -107,8 +104,7 @@ export default function ChatPage() {
         const parsed = JSON.parse(savedMessages);
         if (Array.isArray(parsed) && parsed.length > 0) {
           setMessages(parsed);
-          // Count existing user messages
-          lastUserMsgCountRef.current = parsed.filter((m: { role: string }) => m.role === 'user').length;
+          lastMsgCountRef.current = parsed.length;
         }
       }
       const savedSpaceImage = sessionStorage.getItem(STORAGE_KEYS.customerSpaceImage);
@@ -162,20 +158,29 @@ export default function ChatPage() {
     }
   }, [messageImages]);
 
-  // When a new user message appears, attach the pending image to it
+  // FIXED: When new messages appear, attach the pending image to the latest user message
   useEffect(() => {
-    const userMessages = messages.filter(m => m.role === 'user');
-    const currentCount = userMessages.length;
-    
-    if (currentCount > lastUserMsgCountRef.current && pendingImageRef.current) {
-      const latestUserMsg = userMessages[userMessages.length - 1];
-      if (latestUserMsg && !messageImages[latestUserMsg.id]) {
-        setMessageImages(prev => ({ ...prev, [latestUserMsg.id]: pendingImageRef.current! }));
-        pendingImageRef.current = null;
+    const currentCount = messages.length;
+    if (currentCount > lastMsgCountRef.current) {
+      // New messages appeared - check if we have a pending image
+      if (pendingPreviewRef.current || pendingImageUrlRef.current) {
+        // Find the latest user message that doesn't have an image yet
+        for (let i = messages.length - 1; i >= 0; i--) {
+          const msg = messages[i];
+          if (msg.role === 'user' && !messageImages[msg.id]) {
+            const imageToAttach = pendingImageUrlRef.current || pendingPreviewRef.current;
+            if (imageToAttach) {
+              setMessageImages(prev => ({ ...prev, [msg.id]: imageToAttach }));
+            }
+            pendingPreviewRef.current = null;
+            pendingImageUrlRef.current = null;
+            break;
+          }
+        }
       }
     }
-    lastUserMsgCountRef.current = currentCount;
-  }, [messages, messageImages]);
+    lastMsgCountRef.current = currentCount;
+  }, [messages]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Check auth
   useEffect(() => {
@@ -248,7 +253,7 @@ export default function ChatPage() {
     } catch (err) {
       console.error('Failed to deduct credits:', err);
     }
-    return true; // Allow action even if billing fails
+    return true;
   }, [locale]);
 
   // Check if balance is zero
@@ -291,7 +296,6 @@ export default function ChatPage() {
     try {
       const existingStr = sessionStorage.getItem(STORAGE_KEYS.aiRenders);
       const existing: Array<{ imageUrl: string; stoneName: string; stoneId: number; createdAt: string }> = existingStr ? JSON.parse(existingStr) : [];
-      // Don't add duplicates
       if (!existing.find(r => r.imageUrl === imageUrl)) {
         existing.push({
           imageUrl,
@@ -311,7 +315,6 @@ export default function ChatPage() {
     const renderKey = `${messageId}-${stoneId}`;
     if (generatingImages[renderKey] || generatedImages[renderKey]) return;
 
-    // Check balance first
     if (isBalanceZero) {
       setBalanceNotice(locale === 'zh'
         ? '余额不足！请联系商家充值后继续使用AI功能。'
@@ -320,7 +323,6 @@ export default function ChatPage() {
       return;
     }
 
-    // Deduct credits for image generation
     const allowed = await deductCredits('image_generation');
     if (!allowed) return;
 
@@ -335,7 +337,6 @@ export default function ChatPage() {
       const stone = stoneMap[stoneId];
       if (!stone) throw new Error('Stone not found');
 
-      // Call the improved generate-image API with both images
       const response = await fetch('/api/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -366,12 +367,13 @@ export default function ChatPage() {
   }, [customerSpaceImage, stoneMap, generatingImages, generatedImages, deductCredits, isBalanceZero, locale, saveRenderFor3D]);
 
   // Auto-trigger renders when new messages contain [RENDER:id]
+  // SAFEGUARD: Only trigger the FIRST render tag per message to avoid expensive multi-generation
   useEffect(() => {
     for (const message of messages) {
       if (message.role !== 'assistant') continue;
       const renderRegex = /\[RENDER:(\d+)\]/g;
-      let match;
-      while ((match = renderRegex.exec(message.content)) !== null) {
+      const match = renderRegex.exec(message.content);
+      if (match) {
         const stoneId = parseInt(match[1], 10);
         const renderKey = `${message.id}-${stoneId}`;
         if (!generatingImages[renderKey] && !generatedImages[renderKey] && !generationErrors[renderKey]) {
@@ -415,7 +417,6 @@ export default function ChatPage() {
     e.preventDefault();
     if (!input.trim() && !uploadedImage) return;
 
-    // Check balance
     if (isBalanceZero) {
       setBalanceNotice(locale === 'zh'
         ? '余额不足！请联系商家充值后继续使用AI功能。'
@@ -424,14 +425,18 @@ export default function ChatPage() {
       return;
     }
 
-    // Deduct credits for chat message
     const allowed = await deductCredits('chat_message');
     if (!allowed) return;
 
-    // Save the current preview image to attach to the message
-    if (uploadedImagePreview) {
-      pendingImageRef.current = uploadedImagePreview;
+    // FIXED: Save both the uploaded URL and preview before submitting
+    // Use the actual uploaded URL if available, otherwise use preview (base64)
+    if (uploadedImage) {
+      pendingImageUrlRef.current = uploadedImage;
     }
+    if (uploadedImagePreview) {
+      pendingPreviewRef.current = uploadedImagePreview;
+    }
+    
     originalHandleSubmit(e);
   };
 
@@ -449,19 +454,16 @@ export default function ChatPage() {
     inputRef.current?.focus();
   };
 
-  // Open lightbox
   const openLightbox = (imageUrl: string, title: string) => {
     setLightboxImage(imageUrl);
     setLightboxTitle(title);
   };
 
-  // Close lightbox
   const closeLightbox = () => {
     setLightboxImage(null);
     setLightboxTitle('');
   };
 
-  // Download image
   const downloadImage = (imageUrl: string, filename: string) => {
     const link = document.createElement('a');
     link.href = imageUrl;
@@ -473,7 +475,6 @@ export default function ChatPage() {
 
   // Parse message content for [STONE:id] and [RENDER:id] tags
   const renderMessageContent = (content: string, messageId: string) => {
-    // First strip markdown from the content
     const cleanContent = stripMarkdown(content);
     
     const parts: React.ReactNode[] = [];
@@ -501,9 +502,8 @@ export default function ChatPage() {
         if (!renderedStones.has(stoneId)) {
           renderedStones.add(stoneId);
           parts.push(
-            <div key={`stone-${stoneId}-${match.index}`} className="my-3 bg-white rounded-lg border border-stone-200 overflow-hidden inline-block max-w-[280px] align-top shadow-sm">
-              <div className="relative w-[280px] h-[180px] cursor-pointer" onClick={() => openLightbox(stone.imageUrl, stone.name)}>
-                {/* Use unoptimized img tag for external URLs */}
+            <div key={`stone-${stoneId}-${match.index}`} className="my-3 bg-white rounded-lg border border-stone-200 overflow-hidden inline-block max-w-[360px] align-top shadow-sm">
+              <div className="relative w-[360px] h-[240px] cursor-pointer" onClick={() => openLightbox(stone.imageUrl, stone.name)}>
                 <img
                   src={stone.imageUrl}
                   alt={stone.name}
@@ -532,7 +532,7 @@ export default function ChatPage() {
 
         if (generatedUrl) {
           parts.push(
-            <div key={`render-${renderKey}`} className="my-3 rounded-lg overflow-hidden border border-amber-200 shadow-md max-w-[500px]">
+            <div key={`render-${renderKey}`} className="my-3 rounded-lg overflow-hidden border border-amber-200 shadow-md max-w-[600px]">
               <div className="bg-amber-50 px-3 py-1.5 flex items-center gap-2">
                 <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -662,7 +662,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4" style={{ height: 'calc(100vh - 80px)' }}>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" style={{ height: 'calc(100vh - 80px)' }}>
       {/* Lightbox Modal */}
       {lightboxImage && (
         <div 
@@ -709,7 +709,6 @@ export default function ChatPage() {
           {t('backToBrowse')}
         </Link>
         <div className="flex items-center gap-4">
-          {/* Balance display */}
           {balance !== null && (
             <div className={`flex items-center gap-1.5 px-3 py-1 border rounded-full ${
               isBalanceZero ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'
@@ -822,7 +821,7 @@ export default function ChatPage() {
                       </svg>
                     </div>
                   )}
-                  <div className={`max-w-[80%] rounded-xl px-4 py-3 ${
+                  <div className={`max-w-[75%] rounded-xl px-4 py-3 ${
                     message.role === 'user'
                       ? 'bg-stone-900 text-white'
                       : 'bg-[#faf8f5] text-stone-800 border border-stone-100'
@@ -833,7 +832,7 @@ export default function ChatPage() {
                         <img 
                           src={messageImages[message.id]} 
                           alt="Uploaded photo" 
-                          className="w-[200px] h-[130px] object-cover rounded-lg border border-white/20 cursor-pointer hover:opacity-90 transition-opacity"
+                          className="w-[280px] h-[180px] object-cover rounded-lg border border-white/20 cursor-pointer hover:opacity-90 transition-opacity"
                           onClick={() => openLightbox(messageImages[message.id], locale === 'zh' ? '上传的照片' : 'Uploaded Photo')}
                         />
                       </div>
