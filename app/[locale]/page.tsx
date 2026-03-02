@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { db, tenants, inventoryStones } from '@/lib/db';
 import { eq } from 'drizzle-orm';
 import { createTranslator } from '@/lib/i18n';
+import { HeroAuthButton } from '@/components/HeroAuthButton';
 
 export default async function TenantLandingPage({ params }: { params: { locale: string } }) {
   const { locale } = params;
@@ -136,12 +137,7 @@ export default async function TenantLandingPage({ params }: { params: { locale: 
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
               </Link>
-              <Link
-                href={`/${locale}/login`}
-                className="inline-flex items-center justify-center px-7 py-3.5 text-sm font-medium text-stone-700 border border-stone-300 rounded-md hover:bg-stone-50 transition-all"
-              >
-                {t('signIn')}
-              </Link>
+              <HeroAuthButton loginText={t('signIn')} accountText={t('myAccount')} />
             </div>
           </div>
         </div>

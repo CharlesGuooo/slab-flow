@@ -36,17 +36,35 @@ export function ClientNav({ translations, features, loginRequiredText, loginRequ
   const [pendingRedirect, setPendingRedirect] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const res = await fetch('/api/client/account');
-        setIsAuthenticated(res.ok);
-      } catch {
+  const checkAuth = useCallback(async () => {
+    try {
+      // Use lightweight auth check endpoint with cache-busting
+      const res = await fetch(`/api/auth/check?t=${Date.now()}`, {
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIsAuthenticated(data.authenticated === true);
+      } else {
         setIsAuthenticated(false);
       }
-    };
-    checkAuth();
+    } catch {
+      setIsAuthenticated(false);
+    }
   }, []);
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth, pathname]); // Re-check on every route change
+
+  // Listen for custom auth change events (fired after login/logout)
+  useEffect(() => {
+    const handleAuthChange = () => {
+      checkAuth();
+    };
+    window.addEventListener('auth-changed', handleAuthChange);
+    return () => window.removeEventListener('auth-changed', handleAuthChange);
+  }, [checkAuth]);
 
   const handleProtectedClick = useCallback((e: React.MouseEvent, href: string) => {
     if (isAuthenticated === false) {
@@ -55,6 +73,18 @@ export function ClientNav({ translations, features, loginRequiredText, loginRequ
       setShowLoginModal(true);
     }
   }, [isAuthenticated]);
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      setIsAuthenticated(false);
+      window.dispatchEvent(new Event('auth-changed'));
+      router.push(`/${locale}`);
+      router.refresh();
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
 
   const isActive = (path: string) => pathname === `/${locale}${path}` || pathname === `/${locale}${path}/`;
 
@@ -100,15 +130,26 @@ export function ClientNav({ translations, features, loginRequiredText, loginRequ
         {isAuthenticated === null ? (
           <div className="w-20 h-8 bg-stone-100 rounded animate-pulse" />
         ) : isAuthenticated ? (
-          <Link
-            href={`/${locale}/account`}
-            className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-stone-700 hover:text-stone-900 border border-stone-200 rounded-md hover:border-stone-300 transition-all"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-            {translations.account}
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/${locale}/account`}
+              className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-stone-700 hover:text-stone-900 border border-stone-200 rounded-md hover:border-stone-300 transition-all"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              {translations.account}
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center px-3 py-2 text-[13px] font-medium text-stone-400 hover:text-red-600 transition-all"
+              title={translations.logout}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
+          </div>
         ) : (
           <Link
             href={`/${locale}/login`}
@@ -159,9 +200,17 @@ export function ClientNav({ translations, features, loginRequiredText, loginRequ
             )}
             <div className="border-t border-stone-100 pt-3">
               {isAuthenticated ? (
-                <Link href={`/${locale}/account`} className="block text-sm font-medium text-stone-700 hover:text-amber-700 py-2" onClick={() => setMobileMenuOpen(false)}>
-                  {translations.account}
-                </Link>
+                <>
+                  <Link href={`/${locale}/account`} className="block text-sm font-medium text-stone-700 hover:text-amber-700 py-2" onClick={() => setMobileMenuOpen(false)}>
+                    {translations.account}
+                  </Link>
+                  <button
+                    onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
+                    className="block w-full text-left text-sm font-medium text-red-600 hover:text-red-700 py-2"
+                  >
+                    {translations.logout}
+                  </button>
+                </>
               ) : (
                 <Link href={`/${locale}/login`} className="block text-sm font-medium text-amber-700 py-2" onClick={() => setMobileMenuOpen(false)}>
                   {translations.login}

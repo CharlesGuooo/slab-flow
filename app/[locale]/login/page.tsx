@@ -50,7 +50,11 @@ export default function UnifiedLoginPage() {
         return;
       }
 
-      router.push(redirectTo);
+      // Notify all components that auth state has changed
+      window.dispatchEvent(new Event('auth-changed'));
+
+      // Use window.location for a full page navigation to ensure cookies are picked up
+      window.location.href = redirectTo;
     } catch {
       setError(t('loginError'));
       setIsLoading(false);
@@ -77,7 +81,8 @@ export default function UnifiedLoginPage() {
         return;
       }
 
-      router.push('/admin/dashboard');
+      // Full page navigation for admin to ensure cookie is picked up
+      window.location.href = '/admin/dashboard';
     } catch {
       setError(t('loginError'));
       setIsLoading(false);
@@ -87,14 +92,14 @@ export default function UnifiedLoginPage() {
   return (
     <div className="min-h-[80vh] flex items-center justify-center py-12 px-4 bg-[#faf8f5]">
       <div className="w-full max-w-md">
-        {/* Header */}
+        {/* Header with Logo */}
         <div className="text-center mb-8">
-          <svg className="w-12 h-12 text-amber-700 mx-auto mb-4" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M18 3L33 11V25L18 33L3 25V11L18 3Z" fill="currentColor" fillOpacity="0.08" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
-            <path d="M18 3V33" stroke="currentColor" strokeWidth="0.8" strokeOpacity="0.3"/>
-            <path d="M3 11L33 25" stroke="currentColor" strokeWidth="0.8" strokeOpacity="0.3"/>
-            <path d="M33 11L3 25" stroke="currentColor" strokeWidth="0.8" strokeOpacity="0.3"/>
-          </svg>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt="Logo"
+            className="h-16 w-auto mx-auto mb-4"
+          />
           <h1 className="text-2xl font-bold text-stone-900">{t('loginTitle')}</h1>
         </div>
 
