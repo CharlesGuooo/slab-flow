@@ -311,6 +311,30 @@ export default function ChatPage() {
   }, []);
 
   // Handle image generation when [RENDER:id] tag is detected
+  // Extract design details from conversation history for more accurate rendering
+  const extractDesignDetails = useCallback((): string => {
+    const details: string[] = [];
+    for (const msg of messages) {
+      const content = msg.content.toLowerCase();
+      // Look for installation area mentions
+      if (content.includes('countertop') || content.includes('台面') || content.includes('comptoir')) details.push('countertop surfaces');
+      if (content.includes('waterfall') || content.includes('瀑布') || content.includes('cascade')) details.push('waterfall edge');
+      if (content.includes('backsplash') || content.includes('后挡板') || content.includes('挡板') || content.includes('dosseret')) details.push('backsplash');
+      if (content.includes('island') || content.includes('岛台') || content.includes('îlot')) details.push('kitchen island');
+      if (content.includes('vanity') || content.includes('洗手台') || content.includes('vanité')) details.push('vanity top');
+      if (content.includes('fireplace') || content.includes('壁炉') || content.includes('cheminée')) details.push('fireplace surround');
+      if (content.includes('floor') || content.includes('地面') || content.includes('地板') || content.includes('plancher')) details.push('floor');
+      if (content.includes('wall') || content.includes('墙') || content.includes('mur')) details.push('wall cladding');
+      // Look for style mentions
+      if (content.includes('modern') || content.includes('现代') || content.includes('moderne')) details.push('modern style');
+      if (content.includes('classic') || content.includes('经典') || content.includes('古典') || content.includes('classique')) details.push('classic style');
+      if (content.includes('minimalist') || content.includes('简约') || content.includes('minimaliste')) details.push('minimalist style');
+      if (content.includes('rustic') || content.includes('乡村') || content.includes('rustique')) details.push('rustic style');
+    }
+    const unique = Array.from(new Set(details));
+    return unique.length > 0 ? `Apply stone to: ${unique.join(', ')}` : '';
+  }, [messages]);
+
   const handleRenderStone = useCallback(async (stoneId: number, messageId: string) => {
     const renderKey = `${messageId}-${stoneId}`;
     if (generatingImages[renderKey] || generatedImages[renderKey]) return;
@@ -337,6 +361,9 @@ export default function ChatPage() {
       const stone = stoneMap[stoneId];
       if (!stone) throw new Error('Stone not found');
 
+      // Extract design context from conversation for more accurate rendering
+      const designDetails = extractDesignDetails();
+
       const response = await fetch('/api/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -345,6 +372,7 @@ export default function ChatPage() {
           stoneName: stone.name,
           stoneBrand: `${stone.brand} ${stone.series}`,
           spaceImageBase64: customerSpaceImage || undefined,
+          designDetails: designDetails || undefined,
         }),
       });
 
@@ -364,7 +392,7 @@ export default function ChatPage() {
     } finally {
       setGeneratingImages(prev => ({ ...prev, [renderKey]: false }));
     }
-  }, [customerSpaceImage, stoneMap, generatingImages, generatedImages, deductCredits, isBalanceZero, locale, saveRenderFor3D]);
+  }, [customerSpaceImage, stoneMap, generatingImages, generatedImages, deductCredits, isBalanceZero, locale, saveRenderFor3D, extractDesignDetails]);
 
   // Auto-trigger renders when new messages contain [RENDER:id]
   // SAFEGUARD: Only trigger the FIRST render tag per message to avoid expensive multi-generation
