@@ -11,8 +11,7 @@ import {
   Phone,
   Calendar,
   Coins,
-  Plus,
-  Minus,
+  Pencil,
   Check,
   X,
 } from 'lucide-react';
@@ -74,28 +73,6 @@ export default function CustomersPage() {
         c.id === customerId ? { ...c, aiCredits: editCredits } : c
       ));
       setEditingId(null);
-    } catch (err) {
-      console.error('Error updating credits:', err);
-      alert('Failed to update AI credits');
-    } finally {
-      setSavingId(null);
-    }
-  };
-
-  const handleQuickAdd = async (customerId: number, currentCredits: string, amount: number) => {
-    setSavingId(customerId);
-    const newCredits = (parseFloat(currentCredits || '0') + amount).toFixed(2);
-    try {
-      const response = await fetch(`/api/admin/customers/${customerId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ aiCredits: newCredits }),
-      });
-      if (!response.ok) throw new Error('Failed to update credits');
-      
-      setCustomers(prev => prev.map(c => 
-        c.id === customerId ? { ...c, aiCredits: newCredits } : c
-      ));
     } catch (err) {
       console.error('Error updating credits:', err);
       alert('Failed to update AI credits');
@@ -208,13 +185,18 @@ export default function CustomersPage() {
                             min="0"
                             value={editCredits}
                             onChange={(e) => setEditCredits(e.target.value)}
-                            className="w-24 px-2 py-1 text-sm border border-amber-300 rounded-lg focus:ring-1 focus:ring-amber-400 focus:border-amber-400"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveCredits(customer.id);
+                              if (e.key === 'Escape') setEditingId(null);
+                            }}
+                            className="w-28 px-3 py-1.5 text-sm border border-amber-300 rounded-lg focus:ring-1 focus:ring-amber-400 focus:border-amber-400"
                             autoFocus
                           />
                           <button
                             onClick={() => handleSaveCredits(customer.id)}
                             disabled={savingId === customer.id}
-                            className="p-1 text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
+                            className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
+                            title="Save"
                           >
                             {savingId === customer.id ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
@@ -224,40 +206,30 @@ export default function CustomersPage() {
                           </button>
                           <button
                             onClick={() => setEditingId(null)}
-                            className="p-1 text-stone-400 hover:bg-stone-100 rounded-md transition-colors"
+                            className="p-1.5 text-stone-400 hover:bg-stone-100 rounded-md transition-colors"
+                            title="Cancel"
                           >
                             <X className="h-4 w-4" />
                           </button>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleQuickAdd(customer.id, customer.aiCredits, -1)}
-                            disabled={savingId === customer.id || parseFloat(customer.aiCredits || '0') <= 0}
-                            className="p-1 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors disabled:opacity-30"
-                            title="Remove $1"
-                          >
-                            <Minus className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleEditCredits(customer)}
-                            className="inline-flex items-center gap-1.5 px-2 py-1 text-sm font-medium text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors cursor-pointer"
-                            title="Click to edit"
-                          >
+                          <span className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-700">
                             <Coins className="h-3.5 w-3.5 text-amber-500" />
                             ${parseFloat(customer.aiCredits || '0').toFixed(2)}
-                          </button>
+                          </span>
                           <button
-                            onClick={() => handleQuickAdd(customer.id, customer.aiCredits, 5)}
+                            onClick={() => handleEditCredits(customer)}
                             disabled={savingId === customer.id}
-                            className="p-1 text-stone-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-md transition-colors disabled:opacity-30"
-                            title="Add $5"
+                            className="p-1 text-stone-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors"
+                            title="Edit credits"
                           >
-                            <Plus className="h-3.5 w-3.5" />
+                            {savingId === customer.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Pencil className="h-3.5 w-3.5" />
+                            )}
                           </button>
-                          {savingId === customer.id && (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-500" />
-                          )}
                         </div>
                       )}
                     </td>

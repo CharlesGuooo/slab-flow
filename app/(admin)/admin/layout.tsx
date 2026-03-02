@@ -13,7 +13,15 @@ import {
   Menu,
   X,
   ExternalLink,
+  Globe,
+  ChevronDown,
 } from 'lucide-react';
+
+const LANGUAGES = [
+  { code: 'en', label: 'English', flag: '🇬🇧' },
+  { code: 'zh', label: '中文', flag: '🇨🇳' },
+  { code: 'fr', label: 'Français', flag: '🇫🇷' },
+] as const;
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -34,6 +42,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [tenantName, setTenantName] = useState('Loading...');
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [storefrontLocale, setStorefrontLocale] = useState('en');
+  const [showLangMenu, setShowLangMenu] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -113,7 +123,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           <div className="flex items-center justify-between h-16 px-5 border-b border-stone-700/50">
             <Link href="/admin/dashboard" className="flex items-center space-x-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.png" alt="Logo" className="h-9 w-auto brightness-0 invert" />
+              <img src="/logo.png" alt="Logo" className="h-9 w-9 rounded-lg object-contain bg-white/90 p-0.5" />
               <span className="text-base font-semibold text-white tracking-wide">{tenantName}</span>
             </Link>
             <button
@@ -155,8 +165,43 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
           {/* Bottom actions */}
           <div className="px-3 py-3 space-y-1 border-t border-stone-700/50">
+            {/* Language Switcher */}
+            <div className="relative">
+              <button
+                onClick={() => setShowLangMenu(!showLangMenu)}
+                className="flex items-center justify-between w-full px-3 py-2.5 text-sm font-medium text-stone-400 rounded-lg hover:bg-stone-800 hover:text-stone-200 transition-all"
+              >
+                <span className="flex items-center">
+                  <Globe className="mr-3 h-[18px] w-[18px] text-stone-500" />
+                  {LANGUAGES.find(l => l.code === storefrontLocale)?.flag}{' '}
+                  {LANGUAGES.find(l => l.code === storefrontLocale)?.label}
+                </span>
+                <ChevronDown className={`h-4 w-4 text-stone-500 transition-transform ${showLangMenu ? 'rotate-180' : ''}`} />
+              </button>
+              {showLangMenu && (
+                <div className="absolute bottom-full left-0 right-0 mb-1 bg-stone-800 rounded-lg border border-stone-700/50 overflow-hidden shadow-lg">
+                  {LANGUAGES.map((lang) => (
+                    <button
+                      key={lang.code}
+                      onClick={() => {
+                        setStorefrontLocale(lang.code);
+                        setShowLangMenu(false);
+                      }}
+                      className={`flex items-center w-full px-3 py-2 text-sm transition-colors ${
+                        storefrontLocale === lang.code
+                          ? 'bg-amber-700/20 text-amber-400'
+                          : 'text-stone-400 hover:bg-stone-700 hover:text-stone-200'
+                      }`}
+                    >
+                      <span className="mr-2">{lang.flag}</span>
+                      {lang.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <Link
-              href="/en"
+              href={`/${storefrontLocale}`}
               target="_blank"
               className="flex items-center px-3 py-2.5 text-sm font-medium text-stone-400 rounded-lg hover:bg-stone-800 hover:text-stone-200 transition-all"
             >
@@ -187,7 +232,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             </button>
             <div className="flex items-center gap-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.png" alt="Logo" className="h-7 w-auto" />
+              <img src="/logo.png" alt="Logo" className="h-7 w-7 rounded-md object-contain bg-white/90 p-0.5" />
               <span className="text-sm font-semibold text-stone-900">{tenantName}</span>
             </div>
             <div className="w-10" />
