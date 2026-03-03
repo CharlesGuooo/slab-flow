@@ -4,6 +4,8 @@ import bcrypt from 'bcryptjs';
 import { db, users, tenants } from '@/lib/db';
 import { eq } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();

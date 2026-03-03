@@ -5,6 +5,8 @@ import bcrypt from 'bcryptjs';
 import { db, users } from '@/lib/db';
 import { eq, and } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 const JWT_SECRET = new TextEncoder().encode(
   process.env.AUTH_SECRET || 'default-secret-change-in-production'
 );
