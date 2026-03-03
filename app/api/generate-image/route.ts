@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * POST - Generate a stone visualization using Nano Banana Pro (Gemini 3 Pro Image Preview)
  * via Laozhang API's Google Native Format endpoint.
@@ -40,6 +42,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('[GenerateImage] Starting generation for:', stoneName, 'by', stoneBrand);
+    console.log('[GenerateImage] Has space image:', !!(spaceImageBase64 || spaceImageUrl));
+
     // Build the request parts array
     const parts: Array<Record<string, unknown>> = [];
     const hasSpaceImage = spaceImageBase64 || spaceImageUrl;
@@ -55,12 +60,21 @@ export async function POST(request: NextRequest) {
           base64Data = match[2];
         }
       }
+      // Validate base64 data is not empty
+      if (base64Data.length < 100) {
+        console.error('[GenerateImage] Space image base64 data too short:', base64Data.length);
+        return NextResponse.json(
+          { error: 'Invalid space image data. Please try uploading again.' },
+          { status: 400 }
+        );
+      }
       parts.push({
         inlineData: {
           mimeType: mimeType,
           data: base64Data,
         },
       });
+      console.log('[GenerateImage] Added space image (inline base64), size:', Math.round(base64Data.length / 1024), 'KB');
     } else if (spaceImageUrl && !spaceImageUrl.startsWith('data:')) {
       // Use fileData for URL-based images
       parts.push({
@@ -69,6 +83,7 @@ export async function POST(request: NextRequest) {
           fileUri: spaceImageUrl,
         },
       });
+      console.log('[GenerateImage] Added space image (URL):', spaceImageUrl.slice(0, 80));
     }
 
     // --- Add stone texture image ---
@@ -82,6 +97,7 @@ export async function POST(request: NextRequest) {
             data: match[2],
           },
         });
+        console.log('[GenerateImage] Added stone image (inline base64)');
       }
     } else {
       // Try to fetch the stone image and convert to base64 for reliability
@@ -100,7 +116,9 @@ export async function POST(request: NextRequest) {
               data: base64,
             },
           });
+          console.log('[GenerateImage] Added stone image (fetched and converted), size:', Math.round(base64.length / 1024), 'KB');
         } else {
+          console.error('[GenerateImage] Failed to fetch stone image:', imgResponse.status);
           // Fallback: try fileData with URL
           parts.push({
             fileData: {
@@ -198,8 +216,8 @@ Generate the image now.`;
       const errorText = await response.text();
       console.error('[GenerateImage] API error:', response.status, errorText);
       return NextResponse.json(
-        { error: `Image generation failed: ${response.status}` },
-        { status: response.status }
+        { error: `Image generation failed (API error ${response.status}). Please try again.` },
+        { status: 502 }
       );
     }
 
@@ -209,8 +227,17 @@ Generate the image now.`;
     const candidate = data.candidates?.[0];
     if (!candidate?.content?.parts) {
       console.error('[GenerateImage] No image in response:', JSON.stringify(data).slice(0, 500));
+      
+      // Check for safety filtering
+      if (candidate?.finishReason === 'SAFETY' || data.promptFeedback?.blockReason) {
+        return NextResponse.json(
+          { error: 'The image could not be generated due to content safety filters. Please try with a different photo.' },
+          { status: 422 }
+        );
+      }
+      
       return NextResponse.json(
-        { error: 'No image was generated. The AI could not process the request. Please try again.' },
+        { error: 'No image was generated. Please try again.' },
         { status: 500 }
       );
     }
@@ -229,7 +256,7 @@ Generate the image now.`;
         console.error('[GenerateImage] Got text instead of image:', textPart.text.slice(0, 200));
       }
       return NextResponse.json(
-        { error: 'Image generation did not return an image. Please try with a different prompt.' },
+        { error: 'Image generation did not return an image. Please try again.' },
         { status: 500 }
       );
     }
@@ -237,6 +264,8 @@ Generate the image now.`;
     const imageBase64 = imagePart.inlineData.data;
     const imageMimeType = imagePart.inlineData.mimeType || 'image/png';
     const imageDataUrl = `data:${imageMimeType};base64,${imageBase64}`;
+
+    console.log('[GenerateImage] Success! Generated image size:', Math.round(imageBase64.length / 1024), 'KB');
 
     return NextResponse.json({
       success: true,

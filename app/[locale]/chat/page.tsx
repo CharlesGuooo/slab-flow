@@ -24,6 +24,7 @@ const STORAGE_KEYS = {
   generatedImages: 'chat_generated_images',
   messageImages: 'chat_message_images',
   aiRenders: 'chat_ai_renders_for_3d',
+  hasUploadedPhoto: 'chat_has_uploaded_photo',
 };
 
 // Strip markdown formatting from AI responses
@@ -61,6 +62,8 @@ export default function ChatPage() {
   // Balance state
   const [balance, setBalance] = useState<number | null>(null);
   const [balanceNotice, setBalanceNotice] = useState<string | null>(null);
+  // Track if user has already uploaded a photo in this conversation
+  const [hasUploadedPhoto, setHasUploadedPhoto] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -88,6 +91,9 @@ export default function ChatPage() {
       // Keep customerSpaceImage for future renders, but clear the upload state
       if (uploadedImage) {
         setCustomerSpaceImage(uploadedImage);
+        setHasUploadedPhoto(true);
+        // Save to session storage
+        try { sessionStorage.setItem(STORAGE_KEYS.hasUploadedPhoto, 'true'); } catch {}
       }
       setUploadedImage(null);
       setUploadedImagePreview(null);
@@ -118,6 +124,10 @@ export default function ChatPage() {
       const savedMessageImages = sessionStorage.getItem(STORAGE_KEYS.messageImages);
       if (savedMessageImages) {
         setMessageImages(JSON.parse(savedMessageImages));
+      }
+      const savedHasUploaded = sessionStorage.getItem(STORAGE_KEYS.hasUploadedPhoto);
+      if (savedHasUploaded === 'true') {
+        setHasUploadedPhoto(true);
       }
     } catch (err) {
       console.error('Failed to restore chat history:', err);
@@ -256,6 +266,30 @@ export default function ChatPage() {
     return true;
   }, [locale]);
 
+  // Refund credits (when render fails)
+  const refundCredits = useCallback(async (action: string) => {
+    try {
+      const res = await fetch('/api/client/balance/refund', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBalance(data.balance);
+        const notice = locale === 'zh'
+          ? `生成失败，已退还 $${data.refunded.toFixed(2)} | 余额: $${data.balance.toFixed(2)}`
+          : locale === 'fr'
+          ? `Échec de génération, remboursé $${data.refunded.toFixed(2)} | Solde: $${data.balance.toFixed(2)}`
+          : `Generation failed, refunded $${data.refunded.toFixed(2)} | Balance: $${data.balance.toFixed(2)}`;
+        setBalanceNotice(notice);
+        setTimeout(() => setBalanceNotice(null), 5000);
+      }
+    } catch (err) {
+      console.error('Failed to refund credits:', err);
+    }
+  }, [locale]);
+
   // Check if balance is zero
   const isBalanceZero = balance !== null && balance <= 0;
 
@@ -347,6 +381,7 @@ export default function ChatPage() {
       return;
     }
 
+    // Deduct credits first
     const allowed = await deductCredits('image_generation');
     if (!allowed) return;
 
@@ -359,7 +394,15 @@ export default function ChatPage() {
 
     try {
       const stone = stoneMap[stoneId];
-      if (!stone) throw new Error('Stone not found');
+      if (!stone) {
+        // Try to find stone by name match in stoneMap values
+        const stoneById = Object.values(stoneMap).find(s => s.id === stoneId);
+        if (!stoneById) {
+          throw new Error(locale === 'zh' ? '找不到该石材，请重新选择' : 'Stone not found in inventory');
+        }
+      }
+      const stoneData = stoneMap[stoneId] || Object.values(stoneMap).find(s => s.id === stoneId);
+      if (!stoneData) throw new Error(locale === 'zh' ? '找不到该石材' : 'Stone not found');
 
       // Extract design context from conversation for more accurate rendering
       const designDetails = extractDesignDetails();
@@ -368,9 +411,9 @@ export default function ChatPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          stoneImageUrl: stone.imageUrl,
-          stoneName: stone.name,
-          stoneBrand: `${stone.brand} ${stone.series}`,
+          stoneImageUrl: stoneData.imageUrl,
+          stoneName: stoneData.name,
+          stoneBrand: `${stoneData.brand} ${stoneData.series}`,
           spaceImageBase64: customerSpaceImage || undefined,
           designDetails: designDetails || undefined,
         }),
@@ -382,17 +425,20 @@ export default function ChatPage() {
       setGeneratedImages(prev => ({ ...prev, [renderKey]: data.imageUrl }));
       
       // Auto-save to 3D scene list
-      saveRenderFor3D(data.imageUrl, stone.name, stoneId);
+      saveRenderFor3D(data.imageUrl, stoneData.name, stoneId);
     } catch (err) {
       console.error('Image generation error:', err);
+      const errorMsg = err instanceof Error ? err.message : 'Failed to generate image';
       setGenerationErrors(prev => ({
         ...prev,
-        [renderKey]: err instanceof Error ? err.message : 'Failed to generate image',
+        [renderKey]: errorMsg,
       }));
+      // REFUND credits on failure
+      await refundCredits('image_generation');
     } finally {
       setGeneratingImages(prev => ({ ...prev, [renderKey]: false }));
     }
-  }, [customerSpaceImage, stoneMap, generatingImages, generatedImages, deductCredits, isBalanceZero, locale, saveRenderFor3D, extractDesignDetails]);
+  }, [customerSpaceImage, stoneMap, generatingImages, generatedImages, deductCredits, refundCredits, isBalanceZero, locale, saveRenderFor3D, extractDesignDetails]);
 
   // Auto-trigger renders when new messages contain [RENDER:id]
   // SAFEGUARD: Only trigger the FIRST render tag per message to avoid expensive multi-generation
@@ -457,7 +503,6 @@ export default function ChatPage() {
     if (!allowed) return;
 
     // FIXED: Save both the uploaded URL and preview before submitting
-    // Use the actual uploaded URL if available, otherwise use preview (base64)
     if (uploadedImage) {
       pendingImageUrlRef.current = uploadedImage;
     }
@@ -499,6 +544,29 @@ export default function ChatPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // NEW CHAT: Clear everything and start fresh
+  const handleNewChat = () => {
+    // Clear all session storage
+    Object.values(STORAGE_KEYS).forEach(key => {
+      try { sessionStorage.removeItem(key); } catch {}
+    });
+    // Reset all state
+    setMessages([]);
+    setUploadedImage(null);
+    setUploadedImagePreview(null);
+    setCustomerSpaceImage(null);
+    setHasUploadedPhoto(false);
+    setGeneratedImages({});
+    setGeneratingImages({});
+    setGenerationErrors({});
+    setMessageImages({});
+    lastMsgCountRef.current = 0;
+    pendingImageUrlRef.current = null;
+    pendingPreviewRef.current = null;
+    // Refresh balance
+    fetchBalance();
   };
 
   // Parse message content for [STONE:id] and [RENDER:id] tags
@@ -557,6 +625,7 @@ export default function ChatPage() {
         const isGenerating = generatingImages[renderKey];
         const generatedUrl = generatedImages[renderKey];
         const genError = generationErrors[renderKey];
+        const stoneData = stoneMap[stoneId] || Object.values(stoneMap).find(s => s.id === stoneId);
 
         if (generatedUrl) {
           parts.push(
@@ -566,14 +635,14 @@ export default function ChatPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 <span className="text-xs font-medium text-amber-800">
-                  {locale === 'zh' ? 'AI效果图' : locale === 'fr' ? 'Visualisation IA' : 'AI Visualization'} - {stone?.name || `Stone #${stoneId}`}
+                  {locale === 'zh' ? 'AI效果图' : locale === 'fr' ? 'Visualisation IA' : 'AI Visualization'} - {stoneData?.name || `Stone #${stoneId}`}
                 </span>
               </div>
               <div 
                 className="cursor-pointer relative group"
-                onClick={() => openLightbox(generatedUrl, `AI Visualization - ${stone?.name || `Stone #${stoneId}`}`)}
+                onClick={() => openLightbox(generatedUrl, `AI Visualization - ${stoneData?.name || `Stone #${stoneId}`}`)}
               >
-                <img src={generatedUrl} alt={`Rendered ${stone?.name || 'stone'} in space`} className="w-full" />
+                <img src={generatedUrl} alt={`Rendered ${stoneData?.name || 'stone'} in space`} className="w-full" />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full p-3 shadow-lg">
                     <svg className="w-6 h-6 text-stone-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -587,7 +656,7 @@ export default function ChatPage() {
                   {locale === 'zh' ? 'AI生成预览，实际效果可能有所不同。' : locale === 'fr' ? 'Aperçu généré par IA. L\'apparence réelle peut varier.' : 'AI-generated preview. Actual appearance may vary.'}
                 </p>
                 <button
-                  onClick={() => downloadImage(generatedUrl, `${stone?.name || 'stone'}-visualization.png`)}
+                  onClick={() => downloadImage(generatedUrl, `${stoneData?.name || 'stone'}-visualization.png`)}
                   className="flex items-center gap-1 text-[10px] text-amber-700 hover:text-amber-900 transition-colors"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -608,7 +677,7 @@ export default function ChatPage() {
                     {locale === 'zh' ? '正在生成效果图...' : locale === 'fr' ? 'Génération en cours...' : 'Generating visualization...'}
                   </p>
                   <p className="text-xs text-stone-500 mt-1">
-                    {locale === 'zh' ? `正在渲染 ${stone?.name || '石材'} (~15秒)` : `Rendering ${stone?.name || 'stone'} in your space (~15s)`}
+                    {locale === 'zh' ? `正在渲染 ${stoneData?.name || '石材'} (~15秒)` : `Rendering ${stoneData?.name || 'stone'} in your space (~15s)`}
                   </p>
                 </div>
               </div>
@@ -619,6 +688,9 @@ export default function ChatPage() {
             <div key={`render-error-${renderKey}`} className="my-3 rounded-lg border border-red-200 p-4 max-w-[400px] bg-red-50">
               <p className="text-sm text-red-700">
                 {locale === 'zh' ? `无法生成效果图: ${genError}` : `Could not generate visualization: ${genError}`}
+              </p>
+              <p className="text-xs text-stone-500 mt-1">
+                {locale === 'zh' ? '费用已退还到您的余额' : locale === 'fr' ? 'Les frais ont été remboursés' : 'Credits have been refunded to your balance'}
               </p>
               <button
                 onClick={() => handleRenderStone(stoneId, messageId)}
@@ -736,7 +808,19 @@ export default function ChatPage() {
           </svg>
           {t('backToBrowse')}
         </Link>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          {/* New Chat Button */}
+          {messages.length > 0 && (
+            <button
+              onClick={handleNewChat}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full hover:bg-amber-100 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              {locale === 'zh' ? '新对话' : locale === 'fr' ? 'Nouveau chat' : 'New Chat'}
+            </button>
+          )}
           {balance !== null && (
             <div className={`flex items-center gap-1.5 px-3 py-1 border rounded-full ${
               isBalanceZero ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'
@@ -762,11 +846,15 @@ export default function ChatPage() {
           <div className={`border shadow-lg rounded-lg px-4 py-3 flex items-center gap-2 ${
             balanceNotice.includes('不足') || balanceNotice.includes('Insufficient')
               ? 'bg-red-50 border-red-200'
+              : balanceNotice.includes('退还') || balanceNotice.includes('refund') || balanceNotice.includes('remboursé')
+              ? 'bg-blue-50 border-blue-200'
               : 'bg-white border-amber-200'
           }`}>
             <svg className={`w-4 h-4 flex-shrink-0 ${
               balanceNotice.includes('不足') || balanceNotice.includes('Insufficient')
                 ? 'text-red-600'
+                : balanceNotice.includes('退还') || balanceNotice.includes('refund') || balanceNotice.includes('remboursé')
+                ? 'text-blue-600'
                 : 'text-amber-600'
             }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -924,9 +1012,6 @@ export default function ChatPage() {
             <span className="text-xs text-green-700">
               {locale === 'zh' ? '空间照片已保存，可用于AI效果图生成' : locale === 'fr' ? 'Photo d\'espace sauvegardée pour la visualisation IA' : 'Space photo saved for AI visualization'}
             </span>
-            <button onClick={() => setCustomerSpaceImage(null)} className="ml-auto text-xs text-green-500 hover:text-red-500">
-              {locale === 'zh' ? '清除' : locale === 'fr' ? 'Effacer' : 'Clear'}
-            </button>
           </div>
         )}
 
@@ -962,20 +1047,40 @@ export default function ChatPage() {
           <form onSubmit={handleSubmit} className="flex items-end gap-2">
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
             
-            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading || isLoading || isBalanceZero}
-              className="flex-shrink-0 w-10 h-10 flex items-center justify-center border border-stone-200 rounded-lg hover:bg-stone-50 disabled:opacity-50 transition-all"
-              title={t('uploadImage')}>
-              {isUploading ? (
-                <svg className="w-4 h-4 animate-spin text-stone-400" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              )}
-            </button>
+            {/* Upload button: disabled after first upload in this conversation */}
+            {hasUploadedPhoto ? (
+              <div className="flex-shrink-0 relative group">
+                <button type="button" disabled
+                  className="w-10 h-10 flex items-center justify-center border border-stone-200 rounded-lg bg-stone-50 opacity-50 cursor-not-allowed"
+                  title={locale === 'zh' ? '每次对话只能上传一张照片，请点击"新对话"上传新照片' : 'One photo per conversation. Click "New Chat" to upload a new photo.'}>
+                  <svg className="w-4 h-4 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </button>
+                {/* Tooltip */}
+                <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-10">
+                  <div className="bg-stone-900 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-lg">
+                    {locale === 'zh' ? '点击右上角"新对话"上传新照片' : locale === 'fr' ? 'Cliquez sur "Nouveau chat" pour une nouvelle photo' : 'Click "New Chat" to upload a new photo'}
+                    <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-stone-900" />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading || isLoading || isBalanceZero}
+                className="flex-shrink-0 w-10 h-10 flex items-center justify-center border border-stone-200 rounded-lg hover:bg-stone-50 disabled:opacity-50 transition-all"
+                title={t('uploadImage')}>
+                {isUploading ? (
+                  <svg className="w-4 h-4 animate-spin text-stone-400" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                )}
+              </button>
+            )}
 
             <textarea
               ref={inputRef}
@@ -998,7 +1103,12 @@ export default function ChatPage() {
             </button>
           </form>
           
-          <p className="text-[10px] text-stone-400 mt-2 text-center">{t('tipUpload')}</p>
+          <p className="text-[10px] text-stone-400 mt-2 text-center">
+            {hasUploadedPhoto
+              ? (locale === 'zh' ? '如需上传新照片，请点击右上角"新对话"' : locale === 'fr' ? 'Pour une nouvelle photo, cliquez sur "Nouveau chat"' : 'To upload a new photo, click "New Chat" above')
+              : t('tipUpload')
+            }
+          </p>
         </div>
       </div>
     </div>
