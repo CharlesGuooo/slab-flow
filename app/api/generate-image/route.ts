@@ -3,13 +3,14 @@ import { NextRequest, NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 /**
- * POST - Generate a stone visualization using Nano Banana Pro (Gemini 3 Pro Image Preview)
- * via Laozhang API's Google Native Format endpoint.
- * 
+ * POST - Generate a stone visualization using Google Gemini API (Nano Banana 2)
+ * Model: gemini-3.1-flash-image-preview
+ * Endpoint: https://generativelanguage.googleapis.com/v1beta/models/...
+ *
  * Accepts TWO reference images:
  * 1. Customer's space photo (kitchen/bathroom)
  * 2. Stone texture/slab photo
- * 
+ *
  * Generates a photorealistic rendering of the stone applied to the space.
  */
 
@@ -24,10 +25,10 @@ interface GenerateImageRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    const apiKey = process.env.LAOZHANG_API_KEY;
+    const apiKey = process.env.GOOGLE_AI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'Image generation API key not configured' },
+        { error: 'Google AI API key not configured' },
         { status: 503 }
       );
     }
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
     console.log('[GenerateImage] Starting generation for:', stoneName, 'by', stoneBrand);
     console.log('[GenerateImage] Has space image:', !!(spaceImageBase64 || spaceImageUrl));
 
-    // Build the request parts array
+    // Build the parts array for the Gemini API request
     const parts: Array<Record<string, unknown>> = [];
     const hasSpaceImage = spaceImageBase64 || spaceImageUrl;
 
@@ -60,7 +61,6 @@ export async function POST(request: NextRequest) {
           base64Data = match[2];
         }
       }
-      // Validate base64 data is not empty
       if (base64Data.length < 100) {
         console.error('[GenerateImage] Space image base64 data too short:', base64Data.length);
         return NextResponse.json(
@@ -69,81 +69,81 @@ export async function POST(request: NextRequest) {
         );
       }
       parts.push({
-        inlineData: {
-          mimeType: mimeType,
+        inline_data: {
+          mime_type: mimeType,
           data: base64Data,
         },
       });
       console.log('[GenerateImage] Added space image (inline base64), size:', Math.round(base64Data.length / 1024), 'KB');
     } else if (spaceImageUrl && !spaceImageUrl.startsWith('data:')) {
-      // Use fileData for URL-based images
-      parts.push({
-        fileData: {
-          mimeType: 'image/jpeg',
-          fileUri: spaceImageUrl,
-        },
-      });
-      console.log('[GenerateImage] Added space image (URL):', spaceImageUrl.slice(0, 80));
+      // Fetch and convert to base64
+      try {
+        const imgResponse = await fetch(spaceImageUrl, { signal: AbortSignal.timeout(15000) });
+        if (imgResponse.ok) {
+          const arrayBuffer = await imgResponse.arrayBuffer();
+          const base64 = Buffer.from(arrayBuffer).toString('base64');
+          const contentType = imgResponse.headers.get('content-type') || 'image/jpeg';
+          parts.push({
+            inline_data: {
+              mime_type: contentType,
+              data: base64,
+            },
+          });
+          console.log('[GenerateImage] Added space image (fetched URL), size:', Math.round(base64.length / 1024), 'KB');
+        }
+      } catch (err) {
+        console.error('[GenerateImage] Failed to fetch space image URL:', err);
+      }
     }
 
     // --- Add stone texture image ---
     if (stoneImageUrl.startsWith('data:')) {
-      // Base64 data URL
       const match = stoneImageUrl.match(/^data:(image\/\w+);base64,(.+)$/);
       if (match) {
         parts.push({
-          inlineData: {
-            mimeType: match[1],
+          inline_data: {
+            mime_type: match[1],
             data: match[2],
           },
         });
         console.log('[GenerateImage] Added stone image (inline base64)');
       }
     } else {
-      // Try to fetch the stone image and convert to base64 for reliability
+      // Fetch the stone image and convert to base64
       try {
-        const imgResponse = await fetch(stoneImageUrl, { 
-          signal: AbortSignal.timeout(15000) 
-        });
+        const imgResponse = await fetch(stoneImageUrl, { signal: AbortSignal.timeout(15000) });
         if (imgResponse.ok) {
           const arrayBuffer = await imgResponse.arrayBuffer();
-          const buffer = Buffer.from(arrayBuffer);
-          const base64 = buffer.toString('base64');
+          const base64 = Buffer.from(arrayBuffer).toString('base64');
           const contentType = imgResponse.headers.get('content-type') || 'image/jpeg';
           parts.push({
-            inlineData: {
-              mimeType: contentType,
+            inline_data: {
+              mime_type: contentType,
               data: base64,
             },
           });
-          console.log('[GenerateImage] Added stone image (fetched and converted), size:', Math.round(base64.length / 1024), 'KB');
+          console.log('[GenerateImage] Added stone image (fetched), size:', Math.round(base64.length / 1024), 'KB');
         } else {
           console.error('[GenerateImage] Failed to fetch stone image:', imgResponse.status);
-          // Fallback: try fileData with URL
-          parts.push({
-            fileData: {
-              mimeType: 'image/jpeg',
-              fileUri: stoneImageUrl,
-            },
-          });
+          return NextResponse.json(
+            { error: 'Could not load stone image. Please try again.' },
+            { status: 400 }
+          );
         }
       } catch (fetchErr) {
-        console.error('[GenerateImage] Failed to fetch stone image, using fileData:', fetchErr);
-        parts.push({
-          fileData: {
-            mimeType: 'image/jpeg',
-            fileUri: stoneImageUrl,
-          },
-        });
+        console.error('[GenerateImage] Failed to fetch stone image:', fetchErr);
+        return NextResponse.json(
+          { error: 'Could not load stone image. Please try again.' },
+          { status: 400 }
+        );
       }
     }
 
     // --- Build the prompt ---
     let prompt: string;
-    
+
     if (hasSpaceImage) {
-      // Two-image mode: space photo + stone texture
-      const designInstructions = designDetails 
+      const designInstructions = designDetails
         ? `\n\nThe customer has specified these design preferences: ${designDetails}`
         : '';
 
@@ -167,7 +167,6 @@ CRITICAL REQUIREMENTS:
 
 Generate the image now.`;
     } else {
-      // Single-image mode: only stone texture, generate a generic luxury kitchen
       prompt = `You are a professional interior design visualization AI. You are given a reference image of a natural stone slab material called "${stoneName}" by ${stoneBrand}.
 
 YOUR TASK: Create a photorealistic interior design visualization of a modern luxury kitchen that prominently features this exact stone material as the countertop.
@@ -188,35 +187,42 @@ Generate the image now.`;
     // Add the text prompt as the last part
     parts.push({ text: prompt });
 
-    console.log('[GenerateImage] Generating with', parts.length - 1, 'images, hasSpaceImage:', !!hasSpaceImage);
+    console.log('[GenerateImage] Sending request to Google Gemini API with', parts.length - 1, 'images');
 
-    // Call Laozhang API with Google Native Format
-    const response = await fetch(
-      'https://api.laozhang.ai/v1beta/models/gemini-3-pro-image-preview:generateContent',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
+    // Call Google Gemini API directly
+    const model = 'gemini-3.1-flash-image-preview';
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'x-goog-api-key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{ parts }],
+        generationConfig: {
+          responseModalities: ['IMAGE', 'TEXT'],
         },
-        body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: {
-            responseModalities: ['IMAGE'],
-            imageConfig: {
-              aspectRatio: '16:9',
-              imageSize: '1K',
-            },
-          },
-        }),
-      }
-    );
+      }),
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[GenerateImage] API error:', response.status, errorText);
+      console.error('[GenerateImage] Google API error:', response.status, errorText.slice(0, 500));
+
+      // Parse error details if possible
+      let errorMessage = `Image generation failed (HTTP ${response.status}).`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        const detail = errorJson?.error?.message;
+        if (detail) errorMessage = detail;
+      } catch {
+        // ignore parse error
+      }
+
       return NextResponse.json(
-        { error: `Image generation failed (API error ${response.status}). Please try again.` },
+        { error: errorMessage + ' Please try again.' },
         { status: 502 }
       );
     }
@@ -226,43 +232,44 @@ Generate the image now.`;
     // Extract the generated image from the response
     const candidate = data.candidates?.[0];
     if (!candidate?.content?.parts) {
-      console.error('[GenerateImage] No image in response:', JSON.stringify(data).slice(0, 500));
-      
-      // Check for safety filtering
+      console.error('[GenerateImage] No content in response:', JSON.stringify(data).slice(0, 500));
+
       if (candidate?.finishReason === 'SAFETY' || data.promptFeedback?.blockReason) {
         return NextResponse.json(
           { error: 'The image could not be generated due to content safety filters. Please try with a different photo.' },
           { status: 422 }
         );
       }
-      
+
       return NextResponse.json(
         { error: 'No image was generated. Please try again.' },
         { status: 500 }
       );
     }
 
-    // Find the image part in the response
+    // Find the image part in the response (Google uses inline_data or inlineData)
     const imagePart = candidate.content.parts.find(
-      (part: { inlineData?: { mimeType: string; data: string } }) => part.inlineData
+      (part: Record<string, unknown>) => part.inline_data || part.inlineData
     );
 
-    if (!imagePart?.inlineData?.data) {
-      // Check if there's a text response instead
+    const imageData = imagePart?.inline_data || imagePart?.inlineData;
+
+    if (!imageData?.data) {
       const textPart = candidate.content.parts.find(
-        (part: { text?: string }) => part.text
+        (part: Record<string, unknown>) => part.text
       );
       if (textPart?.text) {
-        console.error('[GenerateImage] Got text instead of image:', textPart.text.slice(0, 200));
+        console.error('[GenerateImage] Got text instead of image:', String(textPart.text).slice(0, 200));
       }
+      console.error('[GenerateImage] Full response parts:', JSON.stringify(candidate.content.parts).slice(0, 500));
       return NextResponse.json(
         { error: 'Image generation did not return an image. Please try again.' },
         { status: 500 }
       );
     }
 
-    const imageBase64 = imagePart.inlineData.data;
-    const imageMimeType = imagePart.inlineData.mimeType || 'image/png';
+    const imageBase64 = imageData.data as string;
+    const imageMimeType = (imageData.mime_type || imageData.mimeType || 'image/png') as string;
     const imageDataUrl = `data:${imageMimeType};base64,${imageBase64}`;
 
     console.log('[GenerateImage] Success! Generated image size:', Math.round(imageBase64.length / 1024), 'KB');
@@ -272,7 +279,7 @@ Generate the image now.`;
       imageUrl: imageDataUrl,
     });
   } catch (error) {
-    console.error('[GenerateImage] Error:', error);
+    console.error('[GenerateImage] Unexpected error:', error);
     return NextResponse.json(
       { error: 'Failed to generate image. Please try again.' },
       { status: 500 }
