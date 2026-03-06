@@ -8,16 +8,18 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 30; // Allow up to 30s for AI chat responses
 
 function getAIProvider() {
+  // Try Laozhang API first (if configured and working for chat)
   if (process.env.LAOZHANG_API_KEY) {
     return createOpenAI({
       apiKey: process.env.LAOZHANG_API_KEY,
       baseURL: process.env.LAOZHANG_API_ENDPOINT || 'https://api.laozhang.ai/v1',
     });
   }
+  // Fallback to OpenAI directly
   if (process.env.OPENAI_API_KEY) {
     return createOpenAI({
       apiKey: process.env.OPENAI_API_KEY,
-      baseURL: 'https://api.openai.com/v1',
+      baseURL: process.env.OPENAI_API_ENDPOINT || 'https://api.openai.com/v1',
     });
   }
   return null;

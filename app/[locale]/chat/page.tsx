@@ -149,26 +149,45 @@ export default function ChatPage() {
     }
   }, [messages]);
 
-  // Save customerSpaceImage to sessionStorage
+  // Save customerSpaceImage URL to sessionStorage (skip if it's a large base64 data URL)
   useEffect(() => {
-    if (customerSpaceImage) {
-      sessionStorage.setItem(STORAGE_KEYS.customerSpaceImage, customerSpaceImage);
-    } else {
-      sessionStorage.removeItem(STORAGE_KEYS.customerSpaceImage);
+    try {
+      if (customerSpaceImage && !customerSpaceImage.startsWith('data:')) {
+        sessionStorage.setItem(STORAGE_KEYS.customerSpaceImage, customerSpaceImage);
+      } else if (customerSpaceImage && customerSpaceImage.startsWith('data:')) {
+        // Don't store large base64 in sessionStorage - it will exceed quota
+        // Just store a flag that a photo was uploaded
+        sessionStorage.setItem(STORAGE_KEYS.hasUploadedPhoto, 'true');
+      } else {
+        sessionStorage.removeItem(STORAGE_KEYS.customerSpaceImage);
+      }
+    } catch (err) {
+      console.warn('Failed to save space image to sessionStorage:', err);
     }
   }, [customerSpaceImage]);
 
-  // Save generatedImages to sessionStorage
-  useEffect(() => {
-    if (Object.keys(generatedImages).length > 0) {
-      sessionStorage.setItem(STORAGE_KEYS.generatedImages, JSON.stringify(generatedImages));
-    }
-  }, [generatedImages]);
+  // NOTE: Do NOT save generatedImages to sessionStorage!
+  // Each generated image is ~3MB base64, which will exceed the 5MB sessionStorage quota
+  // and cause a QuotaExceededError that crashes React via the Error Boundary.
+  // Generated images are ephemeral - users can regenerate if needed.
 
-  // Save messageImages to sessionStorage
+  // Save messageImages to sessionStorage (only URLs, not base64 data)
   useEffect(() => {
-    if (Object.keys(messageImages).length > 0) {
-      sessionStorage.setItem(STORAGE_KEYS.messageImages, JSON.stringify(messageImages));
+    try {
+      if (Object.keys(messageImages).length > 0) {
+        // Filter out large base64 data URLs to prevent quota exceeded
+        const safeImages: Record<string, string> = {};
+        for (const [key, val] of Object.entries(messageImages)) {
+          if (val && !val.startsWith('data:')) {
+            safeImages[key] = val;
+          }
+        }
+        if (Object.keys(safeImages).length > 0) {
+          sessionStorage.setItem(STORAGE_KEYS.messageImages, JSON.stringify(safeImages));
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to save message images to sessionStorage:', err);
     }
   }, [messageImages]);
 
