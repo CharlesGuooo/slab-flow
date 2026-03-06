@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // Allow up to 60s for image generation
 
 /**
  * POST - Generate a stone visualization using Google Gemini API (Nano Banana 2)

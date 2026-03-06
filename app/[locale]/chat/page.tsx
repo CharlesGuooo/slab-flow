@@ -86,7 +86,9 @@ export default function ChatPage() {
     error,
   } = useChat({
     api: '/api/chat',
-    body: { imageUrl: uploadedImage, locale },
+    // CRITICAL: Use customerSpaceImage as fallback so the AI always knows a photo was uploaded
+    // uploadedImage is cleared after the first message, but customerSpaceImage persists
+    body: { imageUrl: uploadedImage || customerSpaceImage, locale },
     onFinish: () => {
       // Keep customerSpaceImage for future renders, but clear the upload state
       if (uploadedImage) {

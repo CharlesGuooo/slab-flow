@@ -5,6 +5,7 @@ import { db, inventoryStones } from '@/lib/db';
 import { eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 30; // Allow up to 30s for AI chat responses
 
 function getAIProvider() {
   if (process.env.LAOZHANG_API_KEY) {
