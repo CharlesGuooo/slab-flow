@@ -369,6 +369,32 @@ export default function ChatPage() {
     return unique.length > 0 ? `Apply stone to: ${unique.join(', ')}` : '';
   }, [messages]);
 
+  // Convert an image URL to base64 on the client side (browser can access CDN images)
+  const fetchImageAsBase64 = useCallback(async (url: string): Promise<string> => {
+    // If already base64, return as-is
+    if (url.startsWith('data:')) return url;
+    // Use canvas to convert the image to base64
+    return new Promise((resolve, reject) => {
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { reject(new Error('Canvas not supported')); return; }
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/jpeg', 0.9));
+        } catch (e) {
+          reject(e);
+        }
+      };
+      img.onerror = () => reject(new Error('Failed to load stone image'));
+      img.src = url;
+    });
+  }, []);
+
   const handleRenderStone = useCallback(async (stoneId: number, messageId: string) => {
     const renderKey = `${messageId}-${stoneId}`;
     if (generatingImages[renderKey] || generatedImages[renderKey]) return;
@@ -393,16 +419,17 @@ export default function ChatPage() {
     });
 
     try {
-      const stone = stoneMap[stoneId];
-      if (!stone) {
-        // Try to find stone by name match in stoneMap values
-        const stoneById = Object.values(stoneMap).find(s => s.id === stoneId);
-        if (!stoneById) {
-          throw new Error(locale === 'zh' ? '找不到该石材，请重新选择' : 'Stone not found in inventory');
-        }
-      }
       const stoneData = stoneMap[stoneId] || Object.values(stoneMap).find(s => s.id === stoneId);
-      if (!stoneData) throw new Error(locale === 'zh' ? '找不到该石材' : 'Stone not found');
+      if (!stoneData) throw new Error(locale === 'zh' ? '找不到该石材，请重新选择' : 'Stone not found in inventory');
+
+      // Convert stone image to base64 on the CLIENT side (browser can access CDN images, server cannot)
+      let stoneImageBase64: string;
+      try {
+        stoneImageBase64 = await fetchImageAsBase64(stoneData.imageUrl);
+      } catch (imgErr) {
+        console.error('Failed to load stone image on client:', imgErr);
+        throw new Error(locale === 'zh' ? '无法加载石材图片，请稍后重试' : 'Failed to load stone image, please try again');
+      }
 
       // Extract design context from conversation for more accurate rendering
       const designDetails = extractDesignDetails();
@@ -411,7 +438,7 @@ export default function ChatPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          stoneImageUrl: stoneData.imageUrl,
+          stoneImageUrl: stoneImageBase64,  // Send as base64, not URL
           stoneName: stoneData.name,
           stoneBrand: `${stoneData.brand} ${stoneData.series}`,
           spaceImageBase64: customerSpaceImage || undefined,
@@ -438,7 +465,7 @@ export default function ChatPage() {
     } finally {
       setGeneratingImages(prev => ({ ...prev, [renderKey]: false }));
     }
-  }, [customerSpaceImage, stoneMap, generatingImages, generatedImages, deductCredits, refundCredits, isBalanceZero, locale, saveRenderFor3D, extractDesignDetails]);
+  }, [customerSpaceImage, stoneMap, generatingImages, generatedImages, deductCredits, refundCredits, isBalanceZero, locale, saveRenderFor3D, extractDesignDetails, fetchImageAsBase64]);
 
   // Auto-trigger renders when new messages contain [RENDER:id]
   // SAFEGUARD: Only trigger the FIRST render tag per message to avoid expensive multi-generation
