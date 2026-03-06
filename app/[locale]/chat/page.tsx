@@ -75,6 +75,8 @@ export default function ChatPage() {
   const lastMsgCountRef = useRef(0);
   // Track if we've restored from session
   const restoredRef = useRef(false);
+  // Track which render keys have already been triggered to prevent re-triggering
+  const triggeredRendersRef = useRef<Set<string>>(new Set());
 
   const {
     messages,
@@ -373,19 +375,25 @@ export default function ChatPage() {
 
   const handleRenderStone = useCallback(async (stoneId: number, messageId: string) => {
     const renderKey = `${messageId}-${stoneId}`;
-    if (generatingImages[renderKey] || generatedImages[renderKey]) return;
+    // Use ref to prevent duplicate triggers - this avoids the infinite loop
+    if (triggeredRendersRef.current.has(renderKey)) return;
+    triggeredRendersRef.current.add(renderKey);
 
     if (isBalanceZero) {
       setBalanceNotice(locale === 'zh'
         ? '余额不足！请联系商家充值后继续使用AI功能。'
         : 'Insufficient balance! Please contact the supplier to top up your credits.');
       setTimeout(() => setBalanceNotice(null), 8000);
+      triggeredRendersRef.current.delete(renderKey);
       return;
     }
 
     // Deduct credits first
     const allowed = await deductCredits('image_generation');
-    if (!allowed) return;
+    if (!allowed) {
+      triggeredRendersRef.current.delete(renderKey);
+      return;
+    }
 
     setGeneratingImages(prev => ({ ...prev, [renderKey]: true }));
     setGenerationErrors(prev => {
@@ -430,13 +438,16 @@ export default function ChatPage() {
       }));
       // REFUND credits on failure
       await refundCredits('image_generation');
+      // Allow retry by removing from triggered set
+      triggeredRendersRef.current.delete(renderKey);
     } finally {
       setGeneratingImages(prev => ({ ...prev, [renderKey]: false }));
     }
-  }, [customerSpaceImage, stoneMap, generatingImages, generatedImages, deductCredits, refundCredits, isBalanceZero, locale, saveRenderFor3D, extractDesignDetails]);
+  }, [customerSpaceImage, stoneMap, deductCredits, refundCredits, isBalanceZero, locale, saveRenderFor3D, extractDesignDetails]);
 
   // Auto-trigger renders when new messages contain [RENDER:id]
-  // SAFEGUARD: Only trigger the FIRST render tag per message to avoid expensive multi-generation
+  // CRITICAL FIX: Only depend on `messages` to avoid infinite re-trigger loop.
+  // The triggeredRendersRef prevents duplicate calls without needing state in dependencies.
   useEffect(() => {
     for (const message of messages) {
       if (message.role !== 'assistant') continue;
@@ -445,12 +456,12 @@ export default function ChatPage() {
       if (match) {
         const stoneId = parseInt(match[1], 10);
         const renderKey = `${message.id}-${stoneId}`;
-        if (!generatingImages[renderKey] && !generatedImages[renderKey] && !generationErrors[renderKey]) {
+        if (!triggeredRendersRef.current.has(renderKey)) {
           handleRenderStone(stoneId, message.id);
         }
       }
     }
-  }, [messages, handleRenderStone, generatingImages, generatedImages, generationErrors]);
+  }, [messages, handleRenderStone]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -560,6 +571,7 @@ export default function ChatPage() {
     lastMsgCountRef.current = 0;
     pendingImageUrlRef.current = null;
     pendingPreviewRef.current = null;
+    triggeredRendersRef.current.clear();
     // Refresh balance
     fetchBalance();
   };
