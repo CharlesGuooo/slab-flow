@@ -55,10 +55,10 @@ export default function ThreeDGenPage() {
     checkAuth();
   }, []);
 
-  // Load AI renders from sessionStorage
+  // Load AI renders from localStorage (persisted across sessions)
   useEffect(() => {
     try {
-      const savedRenders = sessionStorage.getItem('chat_ai_renders_for_3d');
+      const savedRenders = localStorage.getItem('ai_renders_for_3d');
       if (savedRenders) {
         const parsed = JSON.parse(savedRenders);
         if (Array.isArray(parsed) && parsed.length > 0) {

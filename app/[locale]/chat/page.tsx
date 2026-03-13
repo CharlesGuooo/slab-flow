@@ -17,16 +17,6 @@ interface StoneInfo {
   price: string;
 }
 
-// Session storage keys
-const STORAGE_KEYS = {
-  messages: 'chat_messages',
-  customerSpaceImage: 'chat_customer_space_image',
-  generatedImages: 'chat_generated_images',
-  messageImages: 'chat_message_images',
-  aiRenders: 'chat_ai_renders_for_3d',
-  hasUploadedPhoto: 'chat_has_uploaded_photo',
-};
-
 // Strip markdown formatting from AI responses
 function stripMarkdown(text: string): string {
   let cleaned = text.replace(/\*\*(.+?)\*\*/g, '$1');
@@ -45,37 +35,44 @@ export default function ChatPage() {
   const locale = (params?.locale as string) || 'en';
   const t = useTranslations('chat');
   const tCommon = useTranslations('common');
+
+  // Auth & balance
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [balance, setBalance] = useState<number | null>(null);
+  const [balanceNotice, setBalanceNotice] = useState<string | null>(null);
+
+  // Upload state
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadedImagePreview, setUploadedImagePreview] = useState<string | null>(null);
-  const [customerSpaceImage, setCustomerSpaceImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Persistent image for the conversation (survives after uploadedImage is cleared)
+  const [customerSpaceImage, setCustomerSpaceImage] = useState<string | null>(null);
+  const [hasUploadedPhoto, setHasUploadedPhoto] = useState(false);
+
+  // Stone data
   const [stoneMap, setStoneMap] = useState<Record<number, StoneInfo>>({});
+
+  // Image generation state (all in-memory only, never persisted)
   const [generatingImages, setGeneratingImages] = useState<Record<string, boolean>>({});
   const [generatedImages, setGeneratedImages] = useState<Record<string, string>>({});
   const [generationErrors, setGenerationErrors] = useState<Record<string, string>>({});
-  // Track which messages had images attached - keyed by message id
   const [messageImages, setMessageImages] = useState<Record<string, string>>({});
-  // Lightbox state
+
+  // Show "start new chat" prompt after successful generation
+  const [showNewChatPrompt, setShowNewChatPrompt] = useState(false);
+
+  // Lightbox
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [lightboxTitle, setLightboxTitle] = useState<string>('');
-  // Balance state
-  const [balance, setBalance] = useState<number | null>(null);
-  const [balanceNotice, setBalanceNotice] = useState<string | null>(null);
-  // Track if user has already uploaded a photo in this conversation
-  const [hasUploadedPhoto, setHasUploadedPhoto] = useState(false);
+
+  // Refs
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // Track the image URL that's about to be sent with the next message
   const pendingImageUrlRef = useRef<string | null>(null);
-  // Track the preview (base64) that's about to be sent with the next message
   const pendingPreviewRef = useRef<string | null>(null);
-  // Track the last message count to detect new messages
   const lastMsgCountRef = useRef(0);
-  // Track if we've restored from session
-  const restoredRef = useRef(false);
-  // Track which render keys have already been triggered to prevent re-triggering
   const triggeredRendersRef = useRef<Set<string>>(new Set());
 
   const {
@@ -88,116 +85,22 @@ export default function ChatPage() {
     error,
   } = useChat({
     api: '/api/chat',
-    // CRITICAL: Use customerSpaceImage as fallback so the AI always knows a photo was uploaded
-    // uploadedImage is cleared after the first message, but customerSpaceImage persists
     body: { imageUrl: uploadedImage || customerSpaceImage, locale },
     onFinish: () => {
-      // Keep customerSpaceImage for future renders, but clear the upload state
       if (uploadedImage) {
         setCustomerSpaceImage(uploadedImage);
         setHasUploadedPhoto(true);
-        // Save to session storage
-        try { sessionStorage.setItem(STORAGE_KEYS.hasUploadedPhoto, 'true'); } catch {}
       }
       setUploadedImage(null);
       setUploadedImagePreview(null);
     },
   });
 
-  // Restore chat history from sessionStorage on mount
-  useEffect(() => {
-    if (restoredRef.current) return;
-    restoredRef.current = true;
-    try {
-      const savedMessages = sessionStorage.getItem(STORAGE_KEYS.messages);
-      if (savedMessages) {
-        const parsed = JSON.parse(savedMessages);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setMessages(parsed);
-          lastMsgCountRef.current = parsed.length;
-        }
-      }
-      const savedSpaceImage = sessionStorage.getItem(STORAGE_KEYS.customerSpaceImage);
-      if (savedSpaceImage) {
-        setCustomerSpaceImage(savedSpaceImage);
-      }
-      const savedGeneratedImages = sessionStorage.getItem(STORAGE_KEYS.generatedImages);
-      if (savedGeneratedImages) {
-        setGeneratedImages(JSON.parse(savedGeneratedImages));
-      }
-      const savedMessageImages = sessionStorage.getItem(STORAGE_KEYS.messageImages);
-      if (savedMessageImages) {
-        setMessageImages(JSON.parse(savedMessageImages));
-      }
-      const savedHasUploaded = sessionStorage.getItem(STORAGE_KEYS.hasUploadedPhoto);
-      if (savedHasUploaded === 'true') {
-        setHasUploadedPhoto(true);
-      }
-    } catch (err) {
-      console.error('Failed to restore chat history:', err);
-    }
-  }, [setMessages]);
-
-  // Save chat history to sessionStorage whenever messages change
-  useEffect(() => {
-    if (messages.length > 0) {
-      try {
-        sessionStorage.setItem(STORAGE_KEYS.messages, JSON.stringify(messages));
-      } catch (err) {
-        console.error('Failed to save chat history:', err);
-      }
-    }
-  }, [messages]);
-
-  // Save customerSpaceImage URL to sessionStorage (skip if it's a large base64 data URL)
-  useEffect(() => {
-    try {
-      if (customerSpaceImage && !customerSpaceImage.startsWith('data:')) {
-        sessionStorage.setItem(STORAGE_KEYS.customerSpaceImage, customerSpaceImage);
-      } else if (customerSpaceImage && customerSpaceImage.startsWith('data:')) {
-        // Don't store large base64 in sessionStorage - it will exceed quota
-        // Just store a flag that a photo was uploaded
-        sessionStorage.setItem(STORAGE_KEYS.hasUploadedPhoto, 'true');
-      } else {
-        sessionStorage.removeItem(STORAGE_KEYS.customerSpaceImage);
-      }
-    } catch (err) {
-      console.warn('Failed to save space image to sessionStorage:', err);
-    }
-  }, [customerSpaceImage]);
-
-  // NOTE: Do NOT save generatedImages to sessionStorage!
-  // Each generated image is ~3MB base64, which will exceed the 5MB sessionStorage quota
-  // and cause a QuotaExceededError that crashes React via the Error Boundary.
-  // Generated images are ephemeral - users can regenerate if needed.
-
-  // Save messageImages to sessionStorage (only URLs, not base64 data)
-  useEffect(() => {
-    try {
-      if (Object.keys(messageImages).length > 0) {
-        // Filter out large base64 data URLs to prevent quota exceeded
-        const safeImages: Record<string, string> = {};
-        for (const [key, val] of Object.entries(messageImages)) {
-          if (val && !val.startsWith('data:')) {
-            safeImages[key] = val;
-          }
-        }
-        if (Object.keys(safeImages).length > 0) {
-          sessionStorage.setItem(STORAGE_KEYS.messageImages, JSON.stringify(safeImages));
-        }
-      }
-    } catch (err) {
-      console.warn('Failed to save message images to sessionStorage:', err);
-    }
-  }, [messageImages]);
-
-  // FIXED: When new messages appear, attach the pending image to the latest user message
+  // Attach pending image to the latest user message when new messages appear
   useEffect(() => {
     const currentCount = messages.length;
     if (currentCount > lastMsgCountRef.current) {
-      // New messages appeared - check if we have a pending image
       if (pendingPreviewRef.current || pendingImageUrlRef.current) {
-        // Find the latest user message that doesn't have an image yet
         for (let i = messages.length - 1; i >= 0; i--) {
           const msg = messages[i];
           if (msg.role === 'user' && !messageImages[msg.id]) {
@@ -247,7 +150,7 @@ export default function ChatPage() {
     }
   }, [isAuthenticated, fetchBalance]);
 
-  // Deduct credits and show notice
+  // Deduct credits
   const deductCredits = useCallback(async (action: string) => {
     try {
       const res = await fetch('/api/client/balance', {
@@ -289,7 +192,7 @@ export default function ChatPage() {
     return true;
   }, [locale]);
 
-  // Refund credits (when render fails)
+  // Refund credits
   const refundCredits = useCallback(async (action: string) => {
     try {
       const res = await fetch('/api/client/balance/refund', {
@@ -313,7 +216,6 @@ export default function ChatPage() {
     }
   }, [locale]);
 
-  // Check if balance is zero
   const isBalanceZero = balance !== null && balance <= 0;
 
   // Load stone data
@@ -336,65 +238,46 @@ export default function ChatPage() {
     loadStones();
   }, []);
 
-  // Scroll to bottom of chat container only
+  // Scroll to bottom
   const scrollToBottom = useCallback(() => {
     if (chatContainerRef.current) {
-      const container = chatContainerRef.current;
-      container.scrollTop = container.scrollHeight;
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, []);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isLoading, scrollToBottom]);
+  }, [messages, generatingImages, generatedImages, scrollToBottom]);
 
-  // Save AI render to 3D scene list
+  // Extract design details from conversation
+  const extractDesignDetails = useCallback(() => {
+    const allText = messages.map(m => m.content).join(' ');
+    const keywords = ['kitchen', 'bathroom', 'countertop', 'island', 'backsplash', 'floor', 'wall', 'shower', 'vanity',
+      '厨房', '浴室', '台面', '岛台', '后挡板', '地板', '墙面', '淋浴', '洗手台',
+      'cuisine', 'salle de bain', 'comptoir', 'îlot', 'dosseret', 'plancher', 'mur', 'douche'];
+    const found = keywords.filter(k => allText.toLowerCase().includes(k.toLowerCase()));
+    return found.length > 0 ? found.join(', ') : '';
+  }, [messages]);
+
+  // Save render for 3D scene
   const saveRenderFor3D = useCallback((imageUrl: string, stoneName: string, stoneId: number) => {
     try {
-      const existingStr = sessionStorage.getItem(STORAGE_KEYS.aiRenders);
-      const existing: Array<{ imageUrl: string; stoneName: string; stoneId: number; createdAt: string }> = existingStr ? JSON.parse(existingStr) : [];
-      if (!existing.find(r => r.imageUrl === imageUrl)) {
-        existing.push({
-          imageUrl,
-          stoneName,
-          stoneId,
-          createdAt: new Date().toISOString(),
-        });
-        sessionStorage.setItem(STORAGE_KEYS.aiRenders, JSON.stringify(existing));
-      }
+      const existing = JSON.parse(localStorage.getItem('ai_renders_for_3d') || '[]');
+      existing.push({
+        imageUrl,
+        stoneName,
+        stoneId,
+        timestamp: Date.now(),
+      });
+      localStorage.setItem('ai_renders_for_3d', JSON.stringify(existing));
     } catch (err) {
       console.error('Failed to save render for 3D:', err);
     }
   }, []);
 
-  // Handle image generation when [RENDER:id] tag is detected
-  // Extract design details from conversation history for more accurate rendering
-  const extractDesignDetails = useCallback((): string => {
-    const details: string[] = [];
-    for (const msg of messages) {
-      const content = msg.content.toLowerCase();
-      // Look for installation area mentions
-      if (content.includes('countertop') || content.includes('台面') || content.includes('comptoir')) details.push('countertop surfaces');
-      if (content.includes('waterfall') || content.includes('瀑布') || content.includes('cascade')) details.push('waterfall edge');
-      if (content.includes('backsplash') || content.includes('后挡板') || content.includes('挡板') || content.includes('dosseret')) details.push('backsplash');
-      if (content.includes('island') || content.includes('岛台') || content.includes('îlot')) details.push('kitchen island');
-      if (content.includes('vanity') || content.includes('洗手台') || content.includes('vanité')) details.push('vanity top');
-      if (content.includes('fireplace') || content.includes('壁炉') || content.includes('cheminée')) details.push('fireplace surround');
-      if (content.includes('floor') || content.includes('地面') || content.includes('地板') || content.includes('plancher')) details.push('floor');
-      if (content.includes('wall') || content.includes('墙') || content.includes('mur')) details.push('wall cladding');
-      // Look for style mentions
-      if (content.includes('modern') || content.includes('现代') || content.includes('moderne')) details.push('modern style');
-      if (content.includes('classic') || content.includes('经典') || content.includes('古典') || content.includes('classique')) details.push('classic style');
-      if (content.includes('minimalist') || content.includes('简约') || content.includes('minimaliste')) details.push('minimalist style');
-      if (content.includes('rustic') || content.includes('乡村') || content.includes('rustique')) details.push('rustic style');
-    }
-    const unique = Array.from(new Set(details));
-    return unique.length > 0 ? `Apply stone to: ${unique.join(', ')}` : '';
-  }, [messages]);
-
+  // Handle render stone
   const handleRenderStone = useCallback(async (stoneId: number, messageId: string) => {
     const renderKey = `${messageId}-${stoneId}`;
-    // Use ref to prevent duplicate triggers - this avoids the infinite loop
     if (triggeredRendersRef.current.has(renderKey)) return;
     triggeredRendersRef.current.add(renderKey);
 
@@ -407,7 +290,6 @@ export default function ChatPage() {
       return;
     }
 
-    // Deduct credits first
     const allowed = await deductCredits('image_generation');
     if (!allowed) {
       triggeredRendersRef.current.delete(renderKey);
@@ -425,15 +307,13 @@ export default function ChatPage() {
       const stoneData = stoneMap[stoneId] || Object.values(stoneMap).find(s => s.id === stoneId);
       if (!stoneData) throw new Error(locale === 'zh' ? '找不到该石材，请重新选择' : 'Stone not found in inventory');
 
-      // Extract design context from conversation for more accurate rendering
       const designDetails = extractDesignDetails();
 
-      // Send the stone image URL directly - the server-side API will fetch it
       const response = await fetch('/api/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          stoneImageUrl: stoneData.imageUrl,  // Server will fetch this URL directly
+          stoneImageUrl: stoneData.imageUrl,
           stoneName: stoneData.name,
           stoneBrand: `${stoneData.brand} ${stoneData.series}`,
           spaceImageBase64: customerSpaceImage || undefined,
@@ -446,8 +326,11 @@ export default function ChatPage() {
 
       setGeneratedImages(prev => ({ ...prev, [renderKey]: data.imageUrl }));
       
-      // Auto-save to 3D scene list
+      // Save to 3D scene list
       saveRenderFor3D(data.imageUrl, stoneData.name, stoneId);
+
+      // Show "start new chat" prompt after successful generation
+      setShowNewChatPrompt(true);
     } catch (err) {
       console.error('Image generation error:', err);
       const errorMsg = err instanceof Error ? err.message : 'Failed to generate image';
@@ -455,9 +338,7 @@ export default function ChatPage() {
         ...prev,
         [renderKey]: errorMsg,
       }));
-      // REFUND credits on failure
       await refundCredits('image_generation');
-      // Allow retry by removing from triggered set
       triggeredRendersRef.current.delete(renderKey);
     } finally {
       setGeneratingImages(prev => ({ ...prev, [renderKey]: false }));
@@ -465,14 +346,12 @@ export default function ChatPage() {
   }, [customerSpaceImage, stoneMap, deductCredits, refundCredits, isBalanceZero, locale, saveRenderFor3D, extractDesignDetails]);
 
   // Auto-trigger renders when new messages contain [RENDER:id]
-  // CRITICAL FIX: Only depend on `messages` to avoid infinite re-trigger loop.
-  // The triggeredRendersRef prevents duplicate calls without needing state in dependencies.
   useEffect(() => {
     for (const message of messages) {
       if (message.role !== 'assistant') continue;
-      const renderRegex = /\[RENDER:(\d+)\]/g;
-      const match = renderRegex.exec(message.content);
-      if (match) {
+      const regex = /\[RENDER:(\d+)\]/g;
+      let match;
+      while ((match = regex.exec(message.content)) !== null) {
         const stoneId = parseInt(match[1], 10);
         const renderKey = `${message.id}-${stoneId}`;
         if (!triggeredRendersRef.current.has(renderKey)) {
@@ -480,21 +359,20 @@ export default function ChatPage() {
         }
       }
     }
-  }, [messages, handleRenderStone]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [messages, handleRenderStone]);
 
+  // Image upload handler
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) { alert('Please upload an image file'); return; }
-    if (file.size > 10 * 1024 * 1024) { alert('Image must be less than 10MB'); return; }
-    
+
+    setIsUploading(true);
     const reader = new FileReader();
     reader.onload = (ev) => {
       setUploadedImagePreview(ev.target?.result as string);
     };
     reader.readAsDataURL(file);
-    
-    setIsUploading(true);
+
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -527,7 +405,6 @@ export default function ChatPage() {
     const allowed = await deductCredits('chat_message');
     if (!allowed) return;
 
-    // FIXED: Save both the uploaded URL and preview before submitting
     if (uploadedImage) {
       pendingImageUrlRef.current = uploadedImage;
     }
@@ -571,13 +448,8 @@ export default function ChatPage() {
     document.body.removeChild(link);
   };
 
-  // NEW CHAT: Clear everything and start fresh
+  // NEW CHAT: Clear everything (renders already saved to 3D via localStorage)
   const handleNewChat = () => {
-    // Clear all session storage
-    Object.values(STORAGE_KEYS).forEach(key => {
-      try { sessionStorage.removeItem(key); } catch {}
-    });
-    // Reset all state
     setMessages([]);
     setUploadedImage(null);
     setUploadedImagePreview(null);
@@ -587,11 +459,11 @@ export default function ChatPage() {
     setGeneratingImages({});
     setGenerationErrors({});
     setMessageImages({});
+    setShowNewChatPrompt(false);
     lastMsgCountRef.current = 0;
     pendingImageUrlRef.current = null;
     pendingPreviewRef.current = null;
     triggeredRendersRef.current.clear();
-    // Refresh balance
     fetchBalance();
   };
 
@@ -703,7 +575,7 @@ export default function ChatPage() {
                     {locale === 'zh' ? '正在生成效果图...' : locale === 'fr' ? 'Génération en cours...' : 'Generating visualization...'}
                   </p>
                   <p className="text-xs text-stone-500 mt-1">
-                    {locale === 'zh' ? `正在渲染 ${stoneData?.name || '石材'} (~15秒)` : `Rendering ${stoneData?.name || 'stone'} in your space (~15s)`}
+                    {locale === 'zh' ? `正在渲染 ${stoneData?.name || '石材'} (~30秒)` : `Rendering ${stoneData?.name || 'stone'} in your space (~30s)`}
                   </p>
                 </div>
               </div>
@@ -968,7 +840,6 @@ export default function ChatPage() {
                       ? 'bg-stone-900 text-white'
                       : 'bg-[#faf8f5] text-stone-800 border border-stone-100'
                   }`}>
-                    {/* Show attached image in user messages */}
                     {message.role === 'user' && messageImages[message.id] && (
                       <div className="mb-2">
                         <img 
@@ -1023,6 +894,30 @@ export default function ChatPage() {
               {error && (
                 <div className="bg-red-50 border border-red-100 rounded-lg px-4 py-3 text-sm text-red-600">
                   {error.message}
+                </div>
+              )}
+
+              {/* New Chat Prompt - shown after successful image generation */}
+              {showNewChatPrompt && (
+                <div className="flex justify-center my-4">
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 max-w-md text-center shadow-sm">
+                    <p className="text-sm text-stone-700 mb-3">
+                      {locale === 'zh'
+                        ? '效果图已生成并保存！如需生成其他石材效果图，请开启新对话。'
+                        : locale === 'fr'
+                        ? 'Visualisation générée et sauvegardée ! Pour une autre, démarrez un nouveau chat.'
+                        : 'Visualization generated and saved! To generate another, start a new chat.'}
+                    </p>
+                    <button
+                      onClick={handleNewChat}
+                      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-700 rounded-lg hover:bg-amber-800 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      {locale === 'zh' ? '开启新对话' : locale === 'fr' ? 'Nouveau chat' : 'Start New Chat'}
+                    </button>
+                  </div>
                 </div>
               )}
             </>
@@ -1083,7 +978,6 @@ export default function ChatPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                 </button>
-                {/* Tooltip */}
                 <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-10">
                   <div className="bg-stone-900 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-lg">
                     {locale === 'zh' ? '点击右上角"新对话"上传新照片' : locale === 'fr' ? 'Cliquez sur "Nouveau chat" pour une nouvelle photo' : 'Click "New Chat" to upload a new photo'}
